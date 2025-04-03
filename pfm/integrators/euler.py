@@ -3,10 +3,11 @@ from pfm.integrators.base_integrator import Integrator
 
 class Euler(Integrator):
 
-    def __init__(self, model, config):
+    def __init__(self, model, config, rng):
         super().__init__(model, config)
         self._N_per_dim_minus_one = self._N_per_dim - 1
         self._log2_N_per_dim = int(np.log2(self._N_per_dim))
+        self._rng = rng
 
     def evolve(self):
         # Create rho_der array to store time derivatives
