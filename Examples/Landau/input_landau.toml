@@ -5,6 +5,8 @@ N = 64
 dt = 0.001
 initial_density = 0.01
 free_energy = "landau"
+integrator = "euler"
+model = 'CH'
 
 [landau]
 epsilon = 0.9

@@ -4,7 +4,7 @@ Cahn-Hilliard implementation
 import numpy as np
 
 class CahnHilliard:
-    def __init__(self, config, free_energy_model):
+    def __init__(self, free_energy_model, config):
         self.dt = config.get('dt', 0.001)
         self.N = config.get('N', 64)
         self.initial_density = config.get('initial_density', 0.01)

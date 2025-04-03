@@ -1,7 +1,17 @@
 import numpy as np
 import toml
-from pfm.energy_models.landau import Landau  # Eventually update init to have all the necessary imports...
+from pfm.energy_models import Landau
+from pfm.integrators import Euler
 from pfm.models.cahn_hilliard import CahnHilliard
+
+"""
+Current Development TODO
+========================
+1) I implemented base_integrator and eulerCPU. I should implement the FreeEnergyModel and Laudau code
+2) Make sure I can handle multi-species, make sure that is handled properly (need to find where this is at in the code)
+3) Get just a simple Euler and Landau model up and running
+4) Then implement other energy models, as we can worry about integration schemes later
+"""
 
 class SimulationManager:
     def __init__(self, config):
@@ -10,8 +20,9 @@ class SimulationManager:
         self._print_trajectory_every = config.get("print_trajectory_every", 100)
         self._config = config
         self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'))
-        self._system = CahnHilliard(config, self._free_energy_model)
-        self._trajectories = [open(f"traj_{i}.dat", "w") for i in range(1)]  # Only one species here.
+        self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator'))
+        self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'))
+        self._trajectories = [open(f"traj_{i}.dat", "w") for i in range(1)]  # What is this?
         self._traj_printed = 0
 
     def __del__(self):
@@ -23,11 +34,25 @@ class SimulationManager:
                 traj.close()
 
     @staticmethod
-    def _read_in_energy_model(config, model_name):
-        if model_name.lower() == 'landau':
+    def _read_in_energy_model(config, free_energy):
+        if free_energy.lower() == 'landau':
             return Landau(config)
         else:
-            raise Exception('Invalid model_name specified in the config.')
+            raise Exception('Invalid free_energy specified in the config, valid options are: landau, ')
+
+    @staticmethod
+    def _read_in_integrator(model, config, integrator_name):
+        if integrator_name.lower() == 'euler':
+            return Euler(model, config)
+        else:
+            raise Exception('Invalid integrator scheme, valid options are: euler, ')
+
+    @staticmethod
+    def _read_in_model(model, config, model_name):
+        if model_name.lower() == 'ch':
+            return CahnHilliard(model, config)
+        else:
+            raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ')
 
     def _print_current_state(self, prefix, t):
         print(f"{prefix} state at time {t}")
