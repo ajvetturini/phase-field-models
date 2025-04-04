@@ -3,24 +3,42 @@ import toml
 from pfm.energy_models import Landau
 from pfm.integrators import Euler
 from pfm.models.cahn_hilliard import CahnHilliard
+import os
 
 """
 Current Development TODO
 ========================
-1) I implemented base_integrator and eulerCPU. I should implement the FreeEnergyModel and Laudau code
-2) Make sure I can handle multi-species, make sure that is handled properly (need to find where this is at in the code)
-3) Get just a simple Euler and Landau model up and running
-4) Then implement other energy models, as we can worry about integration schemes later
+1) Get just a simple Euler and Landau model up and running
+2) Implement numba into this CPU version
+3) Then implement other energy models, as we can worry about integration schemes later
+4) Inform Bex / Lainie of this project, then work on JAX version
+5) Write arXiv paper w/ results and performance comparison with C++ code
 """
 
 class SimulationManager:
     def __init__(self, config):
         self._steps = config.get('steps', 100)
         self._print_mass_every = config.get('print_every', 10)
-        self._print_trajectory_every = config.get("print_trajectory_every", 100)
+        self._print_trajectory_strategy = config.get('print_trajectory_strategy', 'linear').lower()
+        if self._print_trajectory_strategy == 'linear':
+            self._print_trajectory_every = config.get("print_trajectory_every", 100)
+            self._print_last_every = config.get('print_last_every', self._print_trajectory_every)
+
+        elif self._print_trajectory_strategy == 'log':
+            self._log_n0 = config.get('log_n0')
+            self.log_fact = config.get('log_fact')
+            self._print_last_every = config.get('print_last_every')
+        else:
+            raise Exception('Invalid printing strategy, valid options are linear and log.')
+
         self._config = config
+        self._write_path = config.get('write_path', r'./')  # Assumes same directory writing by default
+
         # Set RNG:
         self._rng_seed = config.get('steps', np.random.randint(1000000))
+        if 'steps' not in config:
+            print(f'RNG seed not specified, using seed: {self._rng_seed}')
+
         self._rng = np.random.default_rng(self._rng_seed)  # Using Generator, pass this into classes to use RNG
 
         self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'), self._rng)
@@ -28,9 +46,19 @@ class SimulationManager:
                                                     self._rng)
         self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
                                            self._integrator, self._rng)
-        self._trajectories = [open(f"traj_{i}.dat", "w") for i in range(1)]  # What is this?
+
+        # Setup simulation trajectory tracking:
+        num_species = self._free_energy_model.N_species()
+        self._trajectories = []
+        if self._print_trajectory_every > 0 or hasattr(self, '_log_n0'):  # Check if log printing is enabled
+            for i in range(num_species):
+                def_name = os.path.join(self._write_path, f"trajectory_{i}.dat")
+                self._trajectories.append(open(def_name, "w"))
         self._traj_printed = 0
 
+    def __del__(self):
+        # Override default garbage collection so traj files are closed
+        self.close()
 
     def close(self):
         for traj in self._trajectories:
@@ -60,26 +88,62 @@ class SimulationManager:
 
     def _print_current_state(self, prefix, t):
         print(f"{prefix} state at time {t}")
-        # Add code to print current simulation state
+        num_species = self._free_energy_model.N_species()
+        for i in range(num_species):
+            filename = f"{prefix}{i}.dat"
+            fp = os.path.join(self._write_path, filename)
+            with open(fp, "w") as output:
+                self._system.print_species_density(i, output, t)
+        # Maybe add a method to CahnHilliard to print total density if needed?
+        # Something like below?
+        # with open(f"{prefix}density.dat", "w") as output:
+        #     self._system.print_total_density(output, t)
 
-    @property
+    def _should_print_last(self, t):
+        return self._print_last_every > 0 and t % self._print_last_every == 0
+
+
+    def _should_print_traj(self, t):
+        if self._print_trajectory_strategy == "linear":
+            return self._print_trajectory_every > 0 and t % self._print_trajectory_every == 0
+
+        elif self._print_trajectory_strategy.lower() == "log":
+            if not hasattr(self, '_log_n0'):
+                return False
+            next_t = int(round((self._log_n0 * (self.log_fact ** self._traj_printed))))
+            return next_t == t
+
+        return False
+
     def average_free_energy(self):
-        return np.mean(self._free_energy_model.average_free_energy(self._system.grid))
+        """ Cahn-Hilliard (or Allen-Cahn when implemented) will simply calculate this based on stored rho values """
+        return self._system.average_free_energy()
 
-    @property
     def average_mass(self):
-        return np.mean(self._system.grid)
+        """ Cahn-Hilliard (or Allen-Cahn when implemented) will simply calculate this based on stored rho values """
+        return self._system.average_mass()
 
     def run(self):
-        """ Main function of the Simulation Manager """
+        """ Main function of the Simulation Manager, runs the simulation """
         self._print_current_state("init_", 0)
-
-        with open("energy.dat", "w") as mass_output:
+        fp = os.path.join(self._write_path, 'energy.dat')
+        with open(fp, "w") as mass_output:
             for t in range(self._steps):
+                if self._should_print_last(t):
+                    self._print_current_state("last_", t)
+
+                if self._should_print_traj(t):
+                    num_species = self._free_energy_model.N_species()
+                    for i in range(num_species):
+                        self._system.print_species_density(i, self._trajectories[i], t)
+                    self._traj_printed += 1
+
                 if self._print_mass_every > 0 and t % self._print_mass_every == 0:
-                    output_line = f"{t * self._system.dt:.5f} {self.average_free_energy():.8f} {self.average_mass():.5f} {t}"
+                    output_line = (f"{t * self._system.dt:.5f} {self.average_free_energy():.8f} "
+                                   f"{self.average_mass():.5f} {t}")
                     mass_output.write(output_line + "\n")
                     print(output_line)
+
                 self._system.evolve()
 
         self._print_current_state("last_", self._steps)
