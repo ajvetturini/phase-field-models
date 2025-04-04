@@ -24,15 +24,13 @@ class SimulationManager:
         self._rng = np.random.default_rng(self._rng_seed)  # Using Generator, pass this into classes to use RNG
 
         self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'), self._rng)
-        self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator'), self._rng)
-        self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'), self._rng)
+        self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator'),
+                                                    self._rng)
+        self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
+                                           self._integrator, self._rng)
         self._trajectories = [open(f"traj_{i}.dat", "w") for i in range(1)]  # What is this?
         self._traj_printed = 0
 
-
-
-    def __del__(self):
-        self.close()
 
     def close(self):
         for traj in self._trajectories:
@@ -54,9 +52,9 @@ class SimulationManager:
             raise Exception('Invalid integrator scheme, valid options are: euler, ')
 
     @staticmethod
-    def _read_in_model(model, config, model_name, rng):
+    def _read_in_model(model, config, model_name, integrator, rng):
         if model_name.lower() == 'ch':
-            return CahnHilliard(model, config, rng)
+            return CahnHilliard(model, config, integrator, rng)
         else:
             raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ')
 

@@ -13,15 +13,12 @@ class Euler(Integrator):
         # Create rho_der array to store time derivatives
         rho_der = np.zeros_like(self._rho)
 
-        # Calculate time derivatives first
+        # Calculate time derivatives
         for idx in range(self._N_bins):
             coords = self._fill_coords(idx)
-            rho_species = self._rho[tuple([slice(None)] + coords)]  # get species at index i
+            rho_species = self._rho[tuple([slice(None)] + coords)] #get species at index
             for species in range(self._model.N_species):
-                rho_der[tuple([species] + coords)] = (
-                        self._model.der_bulk_free_energy(species, rho_species) -
-                        2 * self._k_laplacian * self._cell_laplacian(self._rho, species, coords)
-                )
+                rho_der[tuple([species] + coords)] = self._model.der_bulk_free_energy(species, rho_species) - 2 * self._k_laplacian * self._cell_laplacian(self._rho, species, coords)
 
         # Integrate time derivatives
         for idx in range(self._N_bins):

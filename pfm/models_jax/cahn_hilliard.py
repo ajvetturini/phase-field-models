@@ -14,7 +14,6 @@ class CahnHilliard:
         self._internal_to_user = config.get('distance_scaling_factor', 1.0)
         self._user_to_internal = 1.0 / self._internal_to_user
         self.dim = config.get('dim', 2)
-        self.free_energy_model = free_energy_model
         if self.dim <= 0 or self.dim > 2:
             raise Exception('Unable to proceed, currently only support for 1D and 2D is implemented')
 
@@ -48,8 +47,7 @@ class CahnHilliard:
                     else:
                         raise ValueError(f"Unsupported number of dimensions {self.dim}")
         elif "initial_density" in config:
-            initial_density = config.get('initial_density')
-            densities = [float(initial_density)] * num_species
+            densities = config.get('initial_density')
             initial_A = config.get('initial_A', 1e-2)
             initial_N_peaks = config.get('initial_N_peaks', 0)
             initial_k = 2 * np.pi * initial_N_peaks / self.N  # Wave vector of modulation
@@ -67,9 +65,9 @@ class CahnHilliard:
         else:
             raise ValueError("Either 'initial_density' or 'load_from' should be specified")
 
-        self.dx *= self._user_to_internal  # Proportional to M
-        self.M /= self._user_to_internal  # Proportional to M^-1
-        self.k_laplacian *= self._user_to_internal ** 5  # Proportional to M^5
+        self.dx *= self._user_to_internal
+        self.M /= self._user_to_internal
+        self.k_laplacian *= self._user_to_internal ** 5
         rho /= self._user_to_internal ** 3
 
         self.V_bin = self.dx ** 3
@@ -131,7 +129,7 @@ class CahnHilliard:
             for species in range(rho.shape[0]):
                 rho_grad = self.gradient(rho, species, coords)
                 interfacial_contrib += self.k_laplacian * np.sum(rho_grad ** 2)
-            fe += self.free_energy_model.bulk_free_energy(rho[:, coords[1], coords[0]]) + interfacial_contrib
+            fe += self.model.bulk_free_energy(rho[:, coords[1], coords[0]]) + interfacial_contrib
         return fe * self.V_bin / np.prod(rho.shape[1:])
 
     def print_species_density(self, species, output, t):
