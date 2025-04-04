@@ -41,13 +41,6 @@ class Euler(Integrator):
             idx >>= self._log2_N_per_dim
         return coords
 
-    def _cell_idx(self, coords):
-        idx = 0
-        multiply_by = 1
-        for d in range(self._dim):
-            idx += coords[d] * multiply_by
-            multiply_by <<= self._log2_N_per_dim
-        return idx
 
     def _cell_laplacian(self, field, species, coords,):
         if self._dim == 1:
