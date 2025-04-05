@@ -153,5 +153,5 @@ class SimulationManager:
 
 
 if __name__ == '__main__':
-    c = toml.load(r'../Examples/Landau/jax_CH/input_landau.toml')
+    c = toml.load(r'../Examples/Landau/jax_long/input_landau.toml')
     SimulationManager(c)

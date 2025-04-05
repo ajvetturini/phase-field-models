@@ -9,7 +9,7 @@ class Integrator:
         self._model = model
         self._N_per_dim = config.get('N', 64)
         self._dt = config.get('dt', 0.001)
-        self._k_laplacian = config.get('k_laplacian', 1.0)
+        self._k_laplacian = config.get('k', 1.0)
         self._M = config.get('M', 1.0)
         self._dx = config.get('dx', 1.0)
         self._dim = config.get('dim', 2)
@@ -20,9 +20,16 @@ class Integrator:
         shape = tuple([num_species] + [self._N_per_dim] * self._dim)  # we need spatial for each of the num_species!\
         self._rho = np.zeros(shape)
         self._N_bins = np.prod(self._rho.shape[1:])  # Total # of spatial bins (elements)
-        self._user_to_internal = 1.0
-        self._internal_to_user = 1.0
 
+        # Setup scaling factor:
+        internal_to_user = config.get('distance_scaling_factor', 1.0)
+        user_to_internal = 1.0 / internal_to_user
+        self._dx *= user_to_internal                      # Proportional to m
+        self._M /= user_to_internal                       # Proportional to m^-1
+        self._k_laplacian *= np.pow(user_to_internal, 5)  # Proportional to m^5
+
+        self._user_to_internal = user_to_internal
+        self._internal_to_user = internal_to_user
         self._use_autodiff = config.get('use_autodiff', False)  # Use manual derivative by default
 
     def set_initial_rho(self, r):

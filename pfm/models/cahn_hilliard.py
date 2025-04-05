@@ -107,6 +107,7 @@ class CahnHilliard:
             print('NOTE: 64-bit precision not being used, stability may be off.')
         self.init_rho = jnp.array(rho, dtype=dtype)  # initialized rho
 
+        self._grad_diff_method = config.get('ch_diff_method', 'fwd')  # Forward or central difference in gradient
 
     @partial(jax.jit, static_argnums=(0,))
     def gradient(self, field: jnp.ndarray) -> jnp.ndarray:
@@ -118,8 +119,15 @@ class CahnHilliard:
         for d in range(self.dim):
             axis_to_roll = spatial_axes[d]
             # Use jnp.roll for periodic boundaries
-            grad_d = (jnp.roll(field, -1, axis=axis_to_roll) - jnp.roll(field, 1, axis=axis_to_roll)
-                      ) / (2 * self.dx)
+            if self._grad_diff_method.lower() == 'fwd':
+                grad_d = (jnp.roll(field, -1, axis=axis_to_roll) - field) / self.dx
+
+            elif self._grad_diff_method.lower() == 'central':
+                grad_d = (jnp.roll(field, -1, axis=axis_to_roll) - jnp.roll(field, 1, axis=axis_to_roll)
+                          ) / (2 * self.dx)
+            else:
+                raise Exception(f'Unsupported difference method: {self._grad_diff_method}. '
+                                f'Valid options are "fwd" and "central".')
             grads.append(grad_d)
 
         # Stack along a new dimension (e.g., axis 1) to represent gradient components

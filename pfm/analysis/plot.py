@@ -61,9 +61,8 @@ def plot_all_energies(list_of_fps: list, **kwargs):
             axs[0].plot(i, j, label=all_labels[ct])
         else:
             axs[0].plot(i, j)
-        axs[0].set_xlabel('Time')
+        axs[0].set_xlabel('Time steps')
         axs[0].set_ylabel('Average Free Energy')
-        axs[0].set_title('Average Free Energy vs. t')
         axs[0].legend()  # Add legend to the first subplot
 
     for ct, (i, j) in enumerate(zip(all_t, all_rho)):
@@ -71,9 +70,8 @@ def plot_all_energies(list_of_fps: list, **kwargs):
             axs[1].plot(i, j, label=all_labels[ct])
         else:
             axs[1].plot(i, j)
-        axs[1].set_xlabel('Time')
+        axs[1].set_xlabel('Time steps')
         axs[1].set_ylabel('Average Mass Density')
-        axs[1].set_title('Average Mass Density vs. t')
         axs[1].ticklabel_format(axis='y', style='sci')
         axs[1].set_ylim(-0.1, 0.1)
 

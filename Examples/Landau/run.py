@@ -2,7 +2,7 @@ from pfm import SimulationManager
 import toml
 import time
 
-c = toml.load(r'jax_CH/input_landau.toml')
+c = toml.load(r'jax_autodiff/input_landau.toml')
 manager = SimulationManager(c)
 start = time.time()
 manager.run()
