@@ -2,12 +2,13 @@ from pfm.energy_models.free_energy_model import FreeEnergyModel
 import jax.numpy as jnp
 import jax
 from functools import partial
+jax.config.update("jax_enable_x64", True)
 
 class jLandau(FreeEnergyModel):
 
     def __init__(self, config):
         super().__init__(config)  # First init the relevent FreeEnergyModel config options
-        self._epsilon = config.get('epsilon', 1.0)
+        self._epsilon = jnp.array(config.get('epsilon', 1.0), dtype=jnp.float64)
 
         if self._user_to_internal != 1.0:
             raise Exception('Landau free energy model does not support distance_scaling_factors from 1.0')
@@ -19,10 +20,10 @@ class jLandau(FreeEnergyModel):
 
     @partial(jax.jit, static_argnums=(0,))
     def der_bulk_free_energy(self, species, rho_species):
-        # Note: Because of jax principles, all of `self` is considered static, thus you can not use this if epsilon
-        #       were to be varied during a simulation.
-        op = rho_species[species]
-        return -self._epsilon * op + op**3
+        """ Calculates derivative of bulk free energy w.r.t. density of spatial grid. This is actually vmapped over
+        the species, thus we can simply do:
+        """
+        return -self._epsilon * rho_species + rho_species**3
 
     def bulk_free_energy(self, rho_species):
         op = rho_species[0]

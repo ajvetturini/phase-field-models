@@ -21,7 +21,8 @@ class SimulationManager:
         self._print_mass_every = config.get('print_every', 10)
         self._print_trajectory_strategy = config.get('print_trajectory_strategy', 'linear').lower()
         if self._print_trajectory_strategy == 'linear':
-            self._print_trajectory_every = config.get("print_trajectory_every", 100)
+            self._print_trajectory_every = config.get("print_trajectory_every")  # Must be specified to prevent
+                                                                                 # accidental massive writes
             self._print_last_every = config.get('print_last_every', self._print_trajectory_every)
 
         elif self._print_trajectory_strategy == 'log':
@@ -113,10 +114,6 @@ class SimulationManager:
                     self._system.print_species_density(i, output, t, rho)
                 else:
                     self._system.print_species_density(i, output, t)
-        # Maybe add a method to CahnHilliard to print total density if needed?
-        # Something like below?
-        # with open(f"{prefix}density.dat", "w") as output:
-        #     self._system.print_total_density(output, t)
 
     def _should_print_last(self, t):
         return self._print_last_every > 0 and t % self._print_last_every == 0
@@ -219,5 +216,5 @@ class SimulationManager:
 
 
 if __name__ == '__main__':
-    c = toml.load(r'../Examples/Landau/input_landau.toml')
+    c = toml.load(r'../Examples/Landau/jax_CH/input_landau.toml')
     SimulationManager(c)

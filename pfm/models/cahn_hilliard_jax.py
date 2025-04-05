@@ -47,11 +47,9 @@ class jCahnHilliard:
                         for idx in range(self.N):
                             rho[s, idx] = float(load_from.readline().strip())
                     elif self.dim == 2:
-                        coords = [0, 0]
-                        for coords[1] in range(self.N):
-                            for coords[0] in range(self.N):
-                                idx = self.cell_idx(coords)
-                                rho[s, coords[1], coords[0]] = float(load_from.readline().strip())
+                        for i in range(self.N):
+                            for j in range(self.N):
+                                rho[s, i, j] = float(load_from.readline().strip())
                     else:
                         raise ValueError(f"Unsupported number of dimensions {self.dim}")
         elif "initial_density" in config:
@@ -105,42 +103,28 @@ class jCahnHilliard:
         self._grid_size_str = ""
         dtype = config.get('float_type', jnp.float64)
         self._float_type = dtype
+        if dtype != jnp.float64:
+            print('NOTE: 64-bit precision not being used, stability may be off.')
         self.init_rho = jnp.array(rho, dtype=dtype)  # initialized rho
 
 
-    def fill_coords(self, idx):
-        coords = []
-        for d in range(self.dim):
-            coords.append(idx & self.N_minus_one)
-            idx >>= self.bits
-        return coords
-
-    def cell_idx(self, coords):
-        idx = 0
-        multiply_by = 1
-        for d in range(self.dim):
-            idx += coords[d] * multiply_by
-            multiply_by <<= self.bits
-        return idx
-
     @partial(jax.jit, static_argnums=(0,))
-    def gradient(self, field: jnp.ndarray, species: int, coords: tuple) -> jnp.ndarray:
-        grad = []
+    def gradient(self, field: jnp.ndarray) -> jnp.ndarray:
+        grads = []
+        # Assumes rho has shape (N_species, N, N) for dim=2
+        # or (N_species, N) for dim=1
+        spatial_axes = tuple(range(1, field.ndim))  # Axes corresponding to spatial dimensions (e.g., (1, 2) for 2D)
 
         for d in range(self.dim):
-            coords_plus = list(coords)
-            coords_minus = list(coords)
+            axis_to_roll = spatial_axes[d]
+            # Use jnp.roll for periodic boundaries
+            grad_d = (jnp.roll(field, -1, axis=axis_to_roll) - jnp.roll(field, 1, axis=axis_to_roll)
+                      ) / (2 * self.dx)
+            grads.append(grad_d)
 
-            coords_plus[d] = (coords[d] + 1) % self.grid_size
-            coords_minus[d] = (coords[d] - 1 + self.grid_size) % self.grid_size
-
-            idx_plus = (species, *coords_plus)
-            idx_minus = (species, *coords_minus)
-
-            diff = (field[idx_plus] - field[idx_minus]) / (2 * self.dx)
-            grad.append(diff)
-
-        return jnp.array(grad, dtype=self._float_type)
+        # Stack along a new dimension (e.g., axis 1) to represent gradient components
+        # Example for 2D: output shape (N_species, 2, N, N) where axis 1 holds [grad_x, grad_y]
+        return jnp.stack(grads, axis=1)
 
     def evolve(self, rho):
         return self.integrator.evolve(rho)
@@ -169,42 +153,48 @@ class jCahnHilliard:
         Computes the average free energy per bin, including bulk and interfacial contributions.
         Assumes: rho.shape = (N_species, Nx, Ny) or similar
         """
-        num_bins = jnp.prod(jnp.array(rho.shape[1:], dtype=int))
+        num_bins = jnp.prod(jnp.array(rho.shape[1:], dtype=jnp.int32))  # Use int32 or int64
 
-        def bin_free_energy(i, acc):
-            coords = jnp.unravel_index(i, rho.shape[1:])
-            interfacial_contrib = 0.0
+        # 1. Calculate interfacial contribution (vectorized)
+        # Assuming vectorized_gradient returns shape (N_species, dim, Nx, Ny, ...)
+        all_gradients = self.gradient(rho)
 
-            def species_loop(species_idx, interf_acc):
-                grad = self.gradient(rho, species_idx, coords)
-                return interf_acc + self.k_laplacian * jnp.sum(grad ** 2)
+        # Sum of squares of gradient components (sum over 'dim' axis, assuming it's axis 1)
+        sum_sq_grad = jnp.sum(all_gradients ** 2, axis=1)  # Shape: (N_species, Nx, Ny, ...)
+        total_interfacial_density = self.k_laplacian * jnp.sum(sum_sq_grad, axis=0)  # Shape: (Nx, Ny, ...)
 
-            interfacial_contrib = jax.lax.fori_loop(0, rho.shape[0], species_loop, 0.0)
+        # 2. Calculate bulk contribution using vectorized operations
+        bulk_density = self.free_energy_model.bulk_free_energy(rho)
 
-            rho_species_at_coords = rho[(slice(None),) + coords]
-            bulk = self.free_energy_model.bulk_free_energy(rho_species_at_coords)
+        # 3. Combine and average
+        total_free_energy_density = bulk_density + total_interfacial_density  # Shape: (Nx, Ny, ...)
+        total_fe = jnp.sum(total_free_energy_density) * self.V_bin
+        avg_fe = total_fe / num_bins
 
-            return acc + bulk + interfacial_contrib
-
-        total_fe = jax.lax.fori_loop(0, num_bins, bin_free_energy, 0.0)
-        avg_fe = total_fe * self.V_bin / num_bins
         return avg_fe
 
     def print_species_density(self, species, output, t, rho):
+        """
+        Prints the density of a given species to the output file in a more Pythonic/NumPy way.
+
+        Args:
+            species (int): The index of the species to print.
+            output (file object): The file to write the density to.
+            t (int): The current time step.
+            rho (jnp.array): The density array with shape (N_species, *self._N_per_dim).
+        """
         output.write(f"# step = {t}, t = {t * self.dt:.5f}, size = {self._grid_size_str}\n")
-        rho = np.array(rho)  # Convert to numpy array for easier writing
-        for idx in range(np.prod(rho.shape[1:])):
-            coords = self.fill_coords(idx)
-            if idx > 0:
-                modulo = self.N
-                for d in range(1, self.dim):
-                    if idx % modulo == 0:
-                        output.write("\n")
-                    modulo <<= self.bits
-            if self.dim == 1:
-                output.write(f"{self._density_to_user(rho[species, coords[0]])} ")
-            else:
-                output.write(f"{self._density_to_user(rho[species, coords[1], coords[0]])} ")
+        rho_np = np.array(rho[species])  # Get the density of the specified species as a NumPy array
+
+        if self.dim == 1:
+            output.write(" ".join(f"{self._density_to_user(val)}" for val in rho_np))
+        elif self.dim == 2:
+            for row in rho_np.T:  # Transpose to iterate over y then x (matching original logic)
+                output.write(" ".join(f"{self._density_to_user(val)}" for val in row))
+                output.write("\n")
+        else:
+            raise NotImplementedError(f"Printing for {self.dim} dimensions is not implemented.")
+
         output.write("\n")
 
     def _density_to_user(self, v):

@@ -37,11 +37,9 @@ class jExplicitEuler(Integrator):
             jnp.arange(self._model.N_species()), rho
         )  # shape: (N_species, Nx, Ny)
 
-        lap_rho = self._cell_laplacian(rho)  # shape: (N_species, Nx, Ny)
-        #d_rho = dF_dRho - 2.0 * self._k_laplacian * lap_rho
-        d_rho = dF_dRho - self._k_laplacian * lap_rho
-
-        lap_d_rho = self._cell_laplacian(d_rho)  # shape: (N_species, Nx, Ny)
+        lap_rho = self._cell_laplacian(rho)  # shape: (N_species, Nx, Ny) <-- This is still correct shape (1, 64, 64)
+        d_rho = dF_dRho - 2.0 * self._k_laplacian * lap_rho  # This is also (1, 64, 64)
+        lap_d_rho = self._cell_laplacian(d_rho)    # Finally, this is also (1, 64, 64)
 
         return rho + self._M * lap_d_rho * self._dt
 
@@ -58,10 +56,9 @@ class jExplicitEuler(Integrator):
         """
         Periodic boundary conditions LaPlacian (uses roll below)
 
-        phi: shape (N_species, Nx, ...)
-        Returns: shape (N_species, Nx, ...)
+        phi: shape (N_species, Ny, Nx,)
+        Returns: shape (N_species, Ny, Nx)
         """
-        Nx, Ny, Nz = self._N_per_dim, self._N_per_dim, self._N_per_dim,
         if self._dim == 1:
             left = jnp.roll(phi, shift=+1, axis=1)
             right = jnp.roll(phi, shift=-1, axis=1)

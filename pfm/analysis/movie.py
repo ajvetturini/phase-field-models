@@ -43,8 +43,8 @@ def animate(filepath: str, **kwargs):
             frames.append(data)
 
     # Normalize colors based on the final frame
-    #norm = colors.Normalize(vmin=frames[-1].min(), vmax=frames[-1].max())
-    image = plt.imshow(frames[0], **kwargs)
+    norm = colors.Normalize(vmin=frames[-1].min(), vmax=frames[-1].max())
+    image = plt.imshow(frames[0], norm=norm)
     cbar = fig.colorbar(image, label="$\psi$")
     ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])  # [left, bottom, width, height]
 
@@ -66,7 +66,9 @@ def animate(filepath: str, **kwargs):
         return [image]
 
     # Create animation
-    anim = animation.FuncAnimation(fig, animate_func, frames=len(frames), interval=200, blit=True, repeat=True)
+    interval = kwargs.get('interval', 200)
+    anim = animation.FuncAnimation(fig, animate_func, frames=len(frames), interval=interval,
+                                   blit=True, repeat=True, repeat_delay=500)
 
     # Add buttons
     def replay(event):
