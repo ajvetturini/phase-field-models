@@ -46,7 +46,7 @@ def animate(filepath: str, **kwargs):
     norm = colors.Normalize(vmin=frames[-1].min(), vmax=frames[-1].max())
     image = plt.imshow(frames[0], norm=norm)
     cbar = fig.colorbar(image, label="$\psi$")
-    ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])  # [left, bottom, width, height]
+    ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])
 
     # Create widgets for user
     slider = widgets.Slider(ax_slider, 'Frame', 0, len(frames) - 1, valinit=0, valstep=1)

@@ -74,6 +74,8 @@ def plot_all_energies(list_of_fps: list, **kwargs):
         axs[1].set_xlabel('Time')
         axs[1].set_ylabel('Average Mass Density')
         axs[1].set_title('Average Mass Density vs. t')
+        axs[1].ticklabel_format(axis='y', style='sci')
+        axs[1].set_ylim(-0.1, 0.1)
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()

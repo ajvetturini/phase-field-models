@@ -12,12 +12,12 @@ files1 = [r'./jax_CH/init_0.dat', r'./jax_CH/last_0.dat']
 files2 = [r'./cpp_landau/init_0.dat', r'./cpp_landau/last_0.dat']  # C++ Output files
 kwargs_list = [{"cmap": "plasma"}, {"cmap": "plasma"}]
 
-#plot_all_densities(files1, kwargs_list)
-#plot_all_densities(files2, kwargs_list)
+plot_all_densities(files1, kwargs_list)
+plot_all_densities(files2, kwargs_list)
 #animate(r'./jax_CH/trajectory_0.dat', cmap='plasma', interval=750)
 #animate(r'./cpp_landau/trajectory_0.dat', cmap='plasma', interval=750)
 
-files = [r'./jax_CH/energy.dat', r'./cpp_landau/energy.dat']
-labels = ['JAX', 'CPP']
+files = [r'./jax_CH/energy.dat', r'./cpp_landau/energy.dat', r'energy.dat']
+labels = ['JAX', 'CPP', 'JAX_Autograd']
 kwargs = {"cmap": "plasma", 'labels': labels}
 plot_all_energies(files, **kwargs)

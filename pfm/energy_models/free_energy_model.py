@@ -26,6 +26,9 @@ class FreeEnergyModel:
         # Derivative of bulk free energy
         raise NotImplementedError('Not implemented here.')
 
+    def der_bulk_free_energy_autodiff(self, species, rho_species):
+        raise NotImplementedError('Not implemented here.')
+
     def bulk_free_energy(self, rho_species):
         # Bulk free energy
         raise NotImplementedError('Not implemented here.')

@@ -23,6 +23,8 @@ class Integrator:
         self._user_to_internal = 1.0
         self._internal_to_user = 1.0
 
+        self._use_autodiff = config.get('use_autodiff', False)  # Use manual derivative by default
+
     def set_initial_rho(self, r):
         self._rho[:] = r[:]
 

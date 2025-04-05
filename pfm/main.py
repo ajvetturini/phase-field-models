@@ -1,18 +1,16 @@
 import numpy as np
 import toml
-from pfm.energy_models import Landau, jLandau
-from pfm.integrators import ExplicitEuler, jExplicitEuler
-from pfm.models import CahnHilliard, jCahnHilliard
+from pfm.energy_models import Landau
+from pfm.integrators import ExplicitEuler
+from pfm.models import CahnHilliard
 import os
 
 """
 Current Development TODO
 ========================
-1) Get just a simple Euler and Landau model up and running
-2) Implement numba into this CPU version
-3) Then implement other energy models, as we can worry about integration schemes later
-4) Inform Bex / Lainie of this project, then work on JAX version
-5) Write arXiv paper w/ results and performance comparison with C++ code
+1) Then implement other energy models, as we can worry about integration schemes later
+2) Inform Bex / Lainie of this project, then work on JAX version
+3) Write arXiv paper w/ results and performance comparison with C++ code
 """
 
 class SimulationManager:
@@ -41,16 +39,10 @@ class SimulationManager:
             print(f'RNG seed not specified, using seed: {self._rng_seed}')
 
         # Setup the free energy model, integrator, and system based on if jax is being used:
-        self._USE_JAX = config.get('use_jax', False)
-        if not self._USE_JAX:
-            print('Note: Without jax, these simulations will take quite a long time. You will only be able to run '
-                  'simple simulations for low amounts of time steps.')
-        self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'), self._rng_seed,
-                                                             self._USE_JAX)
-        self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator'),
-                                                    self._rng_seed, self._USE_JAX)
+        self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'))
+        self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator'))
         self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
-                                           self._integrator, self._rng_seed, self._USE_JAX)
+                                           self._integrator, self._rng_seed)
 
         # Setup simulation trajectory tracking:
         num_species = self._free_energy_model.N_species()
@@ -71,35 +63,24 @@ class SimulationManager:
                 traj.close()
 
     @staticmethod
-    def _read_in_energy_model(config, free_energy, rng_seed, USE_JAX):
-        if free_energy.lower() == 'landau' and not USE_JAX:
-            rng = np.random.default_rng(rng_seed)
-            return Landau(config, rng)
-
-        elif free_energy.lower() == 'landau' and USE_JAX:
-            return jLandau(config)
+    def _read_in_energy_model(config, free_energy):
+        if free_energy.lower() == 'landau':
+            return Landau(config)
 
         else:
             raise Exception('Invalid free_energy specified in the config, valid options are: landau, ')
 
     @staticmethod
-    def _read_in_integrator(model, config, integrator_name, rng_seed, USE_JAX):
-        if integrator_name.lower() == 'euler' and not USE_JAX:
-            rng = np.random.default_rng(rng_seed)
-            return ExplicitEuler(model, config, rng)
-
-        elif integrator_name.lower() == 'euler' and USE_JAX:
-            return jExplicitEuler(model, config)
+    def _read_in_integrator(model, config, integrator_name):
+        if integrator_name.lower() == 'euler':
+            return ExplicitEuler(model, config)
         else:
             raise Exception('Invalid integrator scheme, valid options are: euler, ')
 
     @staticmethod
-    def _read_in_model(model, config, model_name, integrator, rng_seed, USE_JAX):
-        if model_name.lower() == 'ch' and not USE_JAX:
-            rng = np.random.default_rng(rng_seed)
-            return CahnHilliard(model, config, integrator, rng)
-        elif model_name.lower() == 'ch' and USE_JAX:
-            return jCahnHilliard(model, config, integrator, rng_seed)
+    def _read_in_model(model, config, model_name, integrator, rng_seed):
+        if model_name.lower() == 'ch':
+            return CahnHilliard(model, config, integrator, rng_seed)
         else:
             raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ')
 
@@ -110,10 +91,7 @@ class SimulationManager:
             filename = f"{prefix}{i}.dat"
             fp = os.path.join(self._write_path, filename)
             with open(fp, "w") as output:
-                if self._USE_JAX:
-                    self._system.print_species_density(i, output, t, rho)
-                else:
-                    self._system.print_species_density(i, output, t)
+                self._system.print_species_density(i, output, t, rho)
 
     def _should_print_last(self, t):
         return self._print_last_every > 0 and t % self._print_last_every == 0
@@ -133,25 +111,17 @@ class SimulationManager:
 
     def average_free_energy(self, rho=None):
         """ Cahn-Hilliard (or Allen-Cahn when implemented) will simply calculate this based on stored rho values """
-        if self._USE_JAX:
-            return self._system.average_free_energy(rho)
-        else:
-            return self._system.average_free_energy()
+        return self._system.average_free_energy(rho)
 
     def average_mass(self, rho=None):
         """ Cahn-Hilliard (or Allen-Cahn when implemented) will simply calculate this based on stored rho values """
-        if self._USE_JAX:
-            return self._system.average_mass(rho)
-        else:
-            return self._system.average_mass()
+        return self._system.average_mass(rho)
 
     """
-    Main run methods below
+    Main run method
     """
-    def _run_jax(self):
-        """ Runs the jax-version of the solver. Here, we need to treat rho as a variable instead of at the state level
-        to properly use jax.
-        """
+    def run(self):
+        """ Main function of the Simulation Manager, runs the simulation """
         rho_0 = self._system.init_rho
         if self._config.get('verbose', True):
             self._print_current_state("init_", 0, rho=rho_0)
@@ -180,39 +150,6 @@ class SimulationManager:
 
         if self._config.get('verbose', True):
             self._print_current_state("last_", self._steps, rho=rho_n)
-
-    def _run_numpy(self):
-        """ Runs the standard (slow) numpy code which can be used for simple implementation verification """
-        self._print_current_state("init_", 0)
-        fp = os.path.join(self._write_path, 'energy.dat')
-        with open(fp, "w") as mass_output:
-            for t in range(self._steps):
-                if self._should_print_last(t):
-                    self._print_current_state("last_", t)
-
-                if self._should_print_traj(t):
-                    num_species = self._free_energy_model.N_species()
-                    for i in range(num_species):
-                        self._system.print_species_density(i, self._trajectories[i], t)
-                    self._traj_printed += 1
-
-                if self._print_mass_every > 0 and t % self._print_mass_every == 0:
-                    output_line = (f"{t * self._system.dt:.5f} {self.average_free_energy():.8f} "
-                                   f"{self.average_mass():.5f} {t}")
-                    mass_output.write(output_line + "\n")
-                    print(output_line)
-
-                self._system.evolve()
-
-        self._print_current_state("last_", self._steps)
-
-    def run(self):
-        """ Main function of the Simulation Manager, runs the simulation """
-        if self._USE_JAX:
-            self._run_jax()
-        else:
-            self._run_numpy()
-
 
 
 if __name__ == '__main__':
