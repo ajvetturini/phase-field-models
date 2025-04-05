@@ -7,6 +7,7 @@ initial_density = 0.01
 free_energy = "landau"
 integrator = "euler"
 model = 'CH'
+use_jax = true
 
 [landau]
 epsilon = 0.9

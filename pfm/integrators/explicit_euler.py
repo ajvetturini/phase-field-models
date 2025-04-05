@@ -2,7 +2,7 @@ import numpy as np
 from pfm.integrators.base_integrator import Integrator
 
 
-class Euler(Integrator):
+class ExplicitEuler(Integrator):
 
     def __init__(self, model, config, rng):
         super().__init__(model, config)
