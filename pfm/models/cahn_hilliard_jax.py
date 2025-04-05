@@ -56,25 +56,39 @@ class jCahnHilliard:
                         raise ValueError(f"Unsupported number of dimensions {self.dim}")
         elif "initial_density" in config:
             initial_density = config.get('initial_density')
-            densities = [float(initial_density)] * num_species
+            densities = np.array([float(initial_density)] * num_species)
             initial_A = config.get('initial_A', 1e-2)
             initial_N_peaks = config.get('initial_N_peaks', 0)
-            initial_k = 2 * np.pi * initial_N_peaks / self.N  # Wave vector of modulation
-            for bin in range(self.grid_size):
-                modulation = initial_A * np.cos(initial_k * bin)
-                for i in range(num_species):
-                    prng, k1 = jax.random.split(prng, 2)
-                    rand1 = jax.random.uniform(k1, minval=0.0, maxval=1.0)
-                    random_factor = (rand1 - 0.5 if initial_N_peaks == 0 else
-                                     1.0 + 0.02 * (rand1 - 0.5))
-                    average_rho = densities[i]
-                    coords = self.fill_coords(bin)
-                    if self.dim == 1:
-                        rho[i, bin] = average_rho * (1.0 + 2.0 * modulation * random_factor)
-                    elif self.dim == 2:
-                        rho[i, coords[1], coords[0]] = average_rho * (1.0 + 2.0 * modulation * random_factor)
-                    elif self.dim == 3:
-                        raise Exception('Invalid dimension specified, only supports 1D and 2D.')
+            k = 2 * np.pi * initial_N_peaks / self.N  # Wave vector of modulation
+            if self.dim == 1:
+                x = jnp.arange(self.N)  # shape: (Nx,)
+                modulation = initial_A * jnp.cos(k * x)  # shape: (Nx,)
+                prng, subkey = jax.random.split(prng)
+                noise = jax.random.uniform(subkey, shape=(num_species, self.N))  # shape: (S, Nx)
+
+                if initial_N_peaks == 0:
+                    random_factor = noise - 0.5
+                else:
+                    random_factor = 1.0 + 0.02 * (noise - 0.5)
+
+                rho = densities[:, None] * (1.0 + 2.0 * modulation[None, :] * random_factor)
+
+            elif self.dim == 2:
+                y, x = jnp.meshgrid(jnp.arange(self.N), jnp.arange(self.N), indexing='ij')  # (Ny, Nx)
+                r = jnp.sqrt(x ** 2 + y ** 2)
+                modulation = initial_A * jnp.cos(k * r)  # (Ny, Nx)
+                prng, subkey = jax.random.split(prng)
+                noise = jax.random.uniform(subkey, shape=(num_species, self.N, self.N))  # (S, Ny, Nx)
+
+                if initial_N_peaks == 0:
+                    random_factor = noise - 0.5
+                else:
+                    random_factor = 1.0 + 0.02 * (noise - 0.5)
+
+                rho = densities[:, None, None] * (1.0 + 2.0 * modulation[None, :, :] * random_factor)
+
+            elif self.dim == 3:
+                raise NotImplementedError("3D initialization not implemented.")
         else:
             raise ValueError("Either 'initial_density' or 'load_from' should be specified")
 

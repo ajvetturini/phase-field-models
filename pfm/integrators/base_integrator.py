@@ -2,6 +2,7 @@
 Base class for Integrator modules
 """
 import numpy as np
+from typing import Optional
 
 class Integrator:
     def __init__(self, model, config):
@@ -25,7 +26,7 @@ class Integrator:
     def set_initial_rho(self, r):
         self._rho[:] = r[:]
 
-    def evolve(self):
+    def evolve(self, rho: Optional):
         raise NotImplementedError("evolve must be implemented by derived classes.")
 
     def rho(self):

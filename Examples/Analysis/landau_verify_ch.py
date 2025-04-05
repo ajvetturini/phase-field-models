@@ -11,5 +11,5 @@ from pfm.analysis import plot_all, animate
 files = [r'../Landau/init_0.dat', r'../Landau/last_0.dat']
 kwargs_list = [{"cmap": "plasma"}, {"cmap": "plasma"}]
 
-plot_all(files, kwargs_list)
-animate(r'../Landau/trajectory_0.dat')
+#plot_all(files, kwargs_list)
+animate(r'../Landau/trajectory_0.dat', cmap='plasma')

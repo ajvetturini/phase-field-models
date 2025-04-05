@@ -156,29 +156,33 @@ class SimulationManager:
         to properly use jax.
         """
         rho_0 = self._system.init_rho
-        self._print_current_state("init_", 0, rho=rho_0)
+        if self._config.get('verbose', True):
+            self._print_current_state("init_", 0, rho=rho_0)
         fp = os.path.join(self._write_path, 'energy.dat')
         rho_n = rho_0  # init
         with open(fp, "w") as mass_output:
             for t in range(self._steps):
-                if self._should_print_last(t):
+                if self._should_print_last(t) and self._config.get('verbose', True):
                     self._print_current_state("last_", t, rho=rho_n)
 
-                if self._should_print_traj(t):
+                if self._should_print_traj(t) and self._config.get('verbose', True):
                     num_species = self._free_energy_model.N_species()
                     for i in range(num_species):
                         self._system.print_species_density(i, self._trajectories[i], t, rho_n)
                     self._traj_printed += 1
 
+                # This is the write out to the trajectory
                 if self._print_mass_every > 0 and t % self._print_mass_every == 0:
                     output_line = (f"{t * self._system.dt:.5f} {self.average_free_energy(rho_n):.8f} "
                                    f"{self.average_mass(rho_n):.5f} {t}")
                     mass_output.write(output_line + "\n")
-                    print(output_line)
+                    if self._config.get('verbose', True):
+                        print(output_line)
 
                 rho_n = self._system.evolve(rho_n)
 
-        self._print_current_state("last_", self._steps, rho=rho_n)
+        if self._config.get('verbose', True):
+            self._print_current_state("last_", self._steps, rho=rho_n)
 
     def _run_numpy(self):
         """ Runs the standard (slow) numpy code which can be used for simple implementation verification """

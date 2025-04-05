@@ -20,7 +20,7 @@ def _infer_N(filepath: str) -> int:
 
     return N
 
-def animate(filepath: str):
+def animate(filepath: str, **kwargs):
     """
     Creates and saves an animation from a data file.
 
@@ -43,8 +43,8 @@ def animate(filepath: str):
             frames.append(data)
 
     # Normalize colors based on the final frame
-    norm = colors.Normalize(vmin=frames[-1].min(), vmax=frames[-1].max())
-    image = plt.imshow(frames[0], norm=norm)
+    #norm = colors.Normalize(vmin=frames[-1].min(), vmax=frames[-1].max())
+    image = plt.imshow(frames[0], **kwargs)
     cbar = fig.colorbar(image, label="$\psi$")
     ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])  # [left, bottom, width, height]
 
