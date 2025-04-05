@@ -1,0 +1,4 @@
+jax>=0.4.37
+matplotlib>=3.9.3
+numpy==2.0.2
+toml==0.10.2

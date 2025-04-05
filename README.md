@@ -19,6 +19,32 @@ Below is a list of features that would be nice to be implemented. Open a PR if y
 - simple_wertheim, and saleh free energy functions
 - 3D support
 - Allen-Cahn model
+- Different numerical integrators
 
-# Want to help?
-Reach out to me at avetturi [@] andrew [dot] cmu [dot] edu!
+# Package Requirements
+This project requires Python 3.12. Due to the rapid development of JAX, it is strongly recommended to install dependencies in a clean Python 3.12 virtual environment. The following instructions assume you are using `conda`.
+
+1) Create and activate a new environment
+```
+conda create -n [env_name] python=3.12
+conda activate [env_name]
+```
+2) Clone the repository
+```
+git clone https://github.com/ajvetturini/phase-field-models
+cd phase-field-models
+```
+3) Install the package in editable mode
+```
+pip install -e .
+```
+4) Install required dependencies
+```
+# For CUDA-enabled systems:
+pip install "jax[cuda]" matplotlib toml
+
+# For CPU-only or non-Linux systems (e.g., Windows/Mac):
+pip install jax matplotlib toml
+```
+
+
