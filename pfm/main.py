@@ -4,7 +4,7 @@ from pfm.energy_models import Landau, MagneticFilm
 from pfm.integrators import ExplicitEuler
 from pfm.models import CahnHilliard, AllenCahn
 import os
-
+import time
 """
 Current Development TODO
 ========================
@@ -52,6 +52,7 @@ class SimulationManager:
                 def_name = os.path.join(self._write_path, f"trajectory_{i}.dat")
                 self._trajectories.append(open(def_name, "w"))
         self._traj_printed = 0
+        self._total_sim_time = 0
 
     def __del__(self):
         # Override default garbage collection so traj files are closed
@@ -135,6 +136,7 @@ class SimulationManager:
             self._print_current_state("init_", 0, rho=rho_0)
         fp = os.path.join(self._write_path, 'energy.dat')
         rho_n = rho_0  # init
+        t0 = time.time()
         with open(fp, "w") as mass_output:
             for t in range(self._steps):
                 if self._should_print_last(t) and self._config.get('verbose', True):
@@ -148,8 +150,9 @@ class SimulationManager:
 
                 # This is the write out to the trajectory
                 if self._print_mass_every > 0 and t % self._print_mass_every == 0:
+                    tstep = time.time() - t0
                     output_line = (f"{t * self._system.dt:.5f} {self.average_free_energy(rho_n):.8f} "
-                                   f"{self.average_mass(rho_n):.5f} {t}")
+                                   f"{self.average_mass(rho_n):.5f} {t} {tstep:.5f}")
                     mass_output.write(output_line + "\n")
                     if self._config.get('verbose', True):
                         print(output_line)

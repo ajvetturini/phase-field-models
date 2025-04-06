@@ -1,6 +1,6 @@
-steps = 6000000
+steps = 10000000
 print_every = 1000
-print_trajectory_every = 100000
+print_trajectory_every = 200000
 N = 64
 dt = 0.001
 initial_density = 0.01
@@ -9,7 +9,6 @@ integrator = "euler"
 model = 'CH'
 use_autodiff = false  # Source of stability here!
 ch_diff_method = 'central'
-interface_scalar = 2.0
 
 [landau]
 epsilon = 0.9
