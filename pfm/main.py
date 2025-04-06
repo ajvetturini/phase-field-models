@@ -1,8 +1,8 @@
 import numpy as np
 import toml
-from pfm.energy_models import Landau
+from pfm.energy_models import Landau, MagneticFilm
 from pfm.integrators import ExplicitEuler
-from pfm.models import CahnHilliard
+from pfm.models import CahnHilliard, AllenCahn
 import os
 
 """
@@ -66,9 +66,11 @@ class SimulationManager:
     def _read_in_energy_model(config, free_energy):
         if free_energy.lower() == 'landau':
             return Landau(config)
+        elif free_energy.lower() == 'magnetic_film':
+            return MagneticFilm(config)
 
         else:
-            raise Exception('Invalid free_energy specified in the config, valid options are: landau, ')
+            raise Exception('Invalid free_energy specified in the config, valid options are: landau, magnetic_film')
 
     @staticmethod
     def _read_in_integrator(model, config, integrator_name):
@@ -81,8 +83,10 @@ class SimulationManager:
     def _read_in_model(model, config, model_name, integrator, rng_seed):
         if model_name.lower() == 'ch':
             return CahnHilliard(model, config, integrator, rng_seed)
+        elif model_name.lower() == 'ac':
+            return AllenCahn(model, config, integrator, rng_seed)
         else:
-            raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ')
+            raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ac (Allen-Cahn)')
 
     def _print_current_state(self, prefix, t, rho=None):
         print(f"{prefix} state at time {t}")
@@ -122,7 +126,11 @@ class SimulationManager:
     """
     def run(self):
         """ Main function of the Simulation Manager, runs the simulation """
-        rho_0 = self._system.init_rho
+        try:
+            rho_0 = self._system.init_rho
+        except AttributeError:
+            rho_0 = self._system.init_phi
+
         if self._config.get('verbose', True):
             self._print_current_state("init_", 0, rho=rho_0)
         fp = os.path.join(self._write_path, 'energy.dat')
@@ -153,5 +161,5 @@ class SimulationManager:
 
 
 if __name__ == '__main__':
-    c = toml.load(r'../Examples/Landau/jax_long/input_landau.toml')
+    c = toml.load(r'../Examples/Landau/jax_long/input_magnetic_film.toml')
     SimulationManager(c)

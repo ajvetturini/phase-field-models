@@ -26,7 +26,7 @@ class ExplicitEuler(Integrator):
             print(f'Stability term: {lhs} | This term should be << 1 or else Explicit Euler will be unstable.')
 
     @partial(jax.jit, static_argnums=(0, 2))
-    def _evolve_jax(self, rho, dEdp):
+    def _evolve_cahn_hilliard(self, rho, dEdp):
         """
         Explicit Euler step implemented using jax functionalities.
 
@@ -39,18 +39,45 @@ class ExplicitEuler(Integrator):
         )  # shape: (N_species, Nx, Ny)
 
         lap_rho = self._cell_laplacian(rho)  # shape: (N_species, Nx, Ny)
-        d_rho = dF_dRho - 2.0 * self._k_laplacian * lap_rho  # This is also (N_species, Nx, Nx) (for 2D)
+        d_rho = dF_dRho - self._interface_scalar * self._k_laplacian * lap_rho  # This is also (N_species, Nx, Nx) (for 2D)
         lap_d_rho = self._cell_laplacian(d_rho)   # Same as above
 
         return rho + self._M * lap_d_rho * self._dt
 
+    @partial(jax.jit, static_argnums=(0, 2))
+    def _evolve_allen_cahn(self, phi, dEdp):
+        """
+        Explicit Euler step for Allen-Cahn
 
-    def evolve(self, rho):
-        # Determine which function to use based on autodiff flag:
-        if self._use_autodiff:
-            new_rho = self._evolve_jax(rho, self._model.der_bulk_free_energy_autodiff)
+        Computes:
+        phi(t+dt) = phi(t) - gamma * (dF/dphi) * dt
+        where dF/dphi = d(bulk_free_energy)/d(phi) - kappa * laplacian(phi)
+        Here, we assume the free energy model provides the derivative of the bulk term.
+        We'll approximate kappa * laplacian(phi) using the _k_laplacian and our laplacian method.
+        """
+        # Compute dF/dphi (chemical potential) per species and bin
+        dF_dPhi_bulk = jax.vmap(dEdp, in_axes=(0, 0))(
+            jnp.arange(self._model.N_species()), phi
+        )  # shape: (N_species, Nx, Ny)
+
+        lap_phi = self._cell_laplacian(phi)  # shape: (N_species, Nx, Ny)
+        chemical_potential = dF_dPhi_bulk - self._interface_scalar * self._k_laplacian * lap_phi
+
+        d_phi_dt = -self._gamma * chemical_potential
+
+        return phi + d_phi_dt * self._dt
+
+    def evolve(self, rho, method='ch'):
+        """ The state variable (rho, phi) is passed in and updated via Explicit Euler """
+        # Gather derivative of bulk free energy functional:
+        dEdp = self._model.der_bulk_free_energy_autodiff if self._use_autodiff else self._model.der_bulk_free_energy
+
+        if method == 'ch':
+            new_rho = self._evolve_cahn_hilliard(rho, dEdp)
+        elif method == 'ac':
+            new_rho = self._evolve_allen_cahn(rho, dEdp)
         else:
-            new_rho = self._evolve_jax(rho, self._model.der_bulk_free_energy)
+            raise Exception('Invalid integrator method.')
 
         if jnp.isnan(new_rho).any():
             raise Exception('ERROR: NaN found in rho update. This is likely due to numerical method diverging.')

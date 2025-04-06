@@ -11,6 +11,7 @@ class Integrator:
         self._dt = config.get('dt', 0.001)
         self._k_laplacian = config.get('k', 1.0)
         self._M = config.get('M', 1.0)
+        self._gamma = config.get('gamma', 1.0)
         self._dx = config.get('dx', 1.0)
         self._dim = config.get('dim', 2)
         if self._dim <= 0 or self._dim > 2:
@@ -31,6 +32,7 @@ class Integrator:
         self._user_to_internal = user_to_internal
         self._internal_to_user = internal_to_user
         self._use_autodiff = config.get('use_autodiff', False)  # Use manual derivative by default
+        self._interface_scalar = config.get('interface_scalar', 1.)  # Scales interface energy
 
     def set_initial_rho(self, r):
         self._rho[:] = r[:]

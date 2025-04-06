@@ -1,5 +1,5 @@
 """
-Cahn-Hilliard implementation
+Allen-Cahn implementation
 """
 import numpy as np
 import jax.numpy as jnp
@@ -7,14 +7,14 @@ import jax
 from functools import partial
 jax.config.update("jax_enable_x64", True)
 
-class CahnHilliard:
+class AllenCahn:
     def __init__(self, free_energy_model, config, integrator, rng):
         self._rng = rng
         self.N = config.get('N')
-        self.k_laplacian = config.get('k', 1.0)
+        self.gamma = config.get('gamma', 1.0)  # Mobility/kinetic coefficient
         self.dt = config.get('dt')
-        self.M = config.get('M', 1.0)
         self.dx = config.get('dx', 1.0)
+        self._k = config.get('k', 1.0)
         self._internal_to_user = config.get('distance_scaling_factor', 1.0)
         self._user_to_internal = 1.0 / self._internal_to_user
         self.dim = config.get('dim', 2)
@@ -28,12 +28,11 @@ class CahnHilliard:
 
         self.N_minus_one = self.N - 1
         self.bits = int(log2N)
-
         self.grid_size = self.N ** self.dim
 
         num_species = free_energy_model.N_species()
         shape = tuple([num_species] + [self.N] * self.dim)
-        rho = np.zeros(shape)
+        phi = np.zeros(shape)
 
         # Setup RNG key for initialization
         prng = jax.random.PRNGKey(rng)   # rng is just a seed in this case
@@ -44,11 +43,11 @@ class CahnHilliard:
                 for s in range(num_species):
                     if self.dim == 1:
                         for idx in range(self.N):
-                            rho[s, idx] = float(load_from.readline().strip())
+                            phi[s, idx] = float(load_from.readline().strip())
                     elif self.dim == 2:
                         for i in range(self.N):
                             for j in range(self.N):
-                                rho[s, i, j] = float(load_from.readline().strip())
+                                phi[s, i, j] = float(load_from.readline().strip())
                     else:
                         raise ValueError(f"Unsupported number of dimensions {self.dim}")
         elif "initial_density" in config:
@@ -68,21 +67,21 @@ class CahnHilliard:
                 else:
                     random_factor = 1.0 + 0.02 * (noise - 0.5)
 
-                rho = densities[:, None] * (1.0 + 2.0 * modulation[None, :] * random_factor)
+                phi = densities[:, None] * (1.0 + 2.0 * modulation[None, :] * random_factor)
 
             elif self.dim == 2:
                 x, y = jnp.meshgrid(jnp.arange(self.N), jnp.arange(self.N))
                 r = jnp.sqrt(x ** 2 + y ** 2)
-                modulation = initial_A * jnp.cos(k * r)  # (Ny, Nx)
+                modulation = initial_A * jnp.cos(k * r)
                 prng, subkey = jax.random.split(prng)
-                noise = jax.random.uniform(subkey, shape=(num_species, self.N, self.N))  # (S, Ny, Nx)
+                noise = jax.random.uniform(subkey, shape=(num_species, self.N, self.N))
 
                 if initial_N_peaks == 0:
                     random_factor = noise - 0.5
                 else:
                     random_factor = 1.0 + 0.02 * (noise - 0.5)
 
-                rho = densities[:, None, None] * (1.0 + 2.0 * modulation[None, :, :] * random_factor)
+                phi = densities[:, None, None] * (1.0 + 2.0 * modulation[None, :, :] * random_factor)
 
             elif self.dim == 3:
                 raise NotImplementedError("3D initialization not implemented.")
@@ -90,37 +89,31 @@ class CahnHilliard:
             raise ValueError("Either 'initial_density' or 'load_from' should be specified")
 
         self.dx *= self._user_to_internal  # Proportional to M
-        self.M /= self._user_to_internal  # Proportional to M^-1
-        self.k_laplacian *= self._user_to_internal ** 5  # Proportional to M^5
-        rho /= self._user_to_internal ** 3
+        self.gamma *= self._user_to_internal ** 3 # Scaling for mobility/kinetic coefficient
+        phi /= self._user_to_internal ** 3
 
         self.V_bin = self.dx ** 3
 
         self.integrator = integrator
         self._output_ready = False
-        self._d_vec_size = 0
         self._grid_size_str = ""
         dtype = config.get('float_type', jnp.float64)
         self._float_type = dtype
         if dtype != jnp.float64:
             print('NOTE: 64-bit precision not being used, stability may be off.')
-        self.init_rho = jnp.array(rho, dtype=dtype)  # initialized rho
+        self.init_phi = jnp.array(phi, dtype=dtype)  # initialized phi
 
-        self._grad_diff_method = config.get('ch_diff_method', 'fwd')  # Forward or central difference in gradient
+        self._grad_diff_method = config.get('ac_diff_method', 'fwd')  # Forward or central difference in gradient
 
     @partial(jax.jit, static_argnums=(0,))
     def gradient(self, field: jnp.ndarray) -> jnp.ndarray:
         grads = []
-        # Assumes rho has shape (N_species, N, N) for dim=2
-        # or (N_species, N) for dim=1
-        spatial_axes = tuple(range(1, field.ndim))  # Axes corresponding to spatial dimensions (e.g., (1, 2) for 2D)
+        spatial_axes = tuple(range(1, field.ndim))
 
         for d in range(self.dim):
             axis_to_roll = spatial_axes[d]
-            # Use jnp.roll for periodic boundaries
             if self._grad_diff_method.lower() == 'fwd':
                 grad_d = (jnp.roll(field, -1, axis=axis_to_roll) - field) / self.dx
-
             elif self._grad_diff_method.lower() == 'central':
                 grad_d = (jnp.roll(field, -1, axis=axis_to_roll) - jnp.roll(field, 1, axis=axis_to_roll)
                           ) / (2 * self.dx)
@@ -128,13 +121,10 @@ class CahnHilliard:
                 raise Exception(f'Unsupported difference method: {self._grad_diff_method}. '
                                 f'Valid options are "fwd" and "central".')
             grads.append(grad_d)
-
-        # Stack along a new dimension (e.g., axis 1) to represent gradient components
-        # Example for 2D: output shape (N_species, 2, N, N) where axis 1 holds [grad_x, grad_y]
         return jnp.stack(grads, axis=1)
 
     def evolve(self, rho):
-        return self.integrator.evolve(rho)
+        return self.integrator.evolve(rho, method='ac')
 
     @partial(jax.jit, static_argnums=(0,))
     def average_mass(self, rho: jnp.array):
@@ -155,26 +145,23 @@ class CahnHilliard:
         return jnp.sum(rho, axis=tuple(range(1, rho.ndim))) * self.V_bin
 
     @partial(jax.jit, static_argnums=(0,))
-    def average_free_energy(self, rho: jnp.ndarray) -> jnp.ndarray:
+    def average_free_energy(self, phi: jnp.ndarray) -> jnp.ndarray:
         """
-        Computes the average free energy per bin, including bulk and interfacial contributions.
-        Assumes: rho.shape = (N_species, Nx, Ny) or similar
+        Computes the average free energy per bin for the Allen-Cahn model.
+        Assumes: phi.shape = (N_species, Nx, Ny) or similar
         """
-        num_bins = jnp.prod(jnp.array(rho.shape[1:], dtype=jnp.int32))  # Use int32 or int64
+        num_bins = jnp.prod(jnp.array(phi.shape[1:], dtype=jnp.int32))
 
-        # 1. Calculate interfacial contribution (vectorized)
-        # Assuming vectorized_gradient returns shape (N_species, dim, Nx, Ny, ...)
-        all_gradients = self.gradient(rho)
+        # 1. Calculate gradient contribution
+        all_gradients = self.gradient(phi)
+        sum_sq_grad = jnp.sum(all_gradients ** 2, axis=1)
+        interfacial_density = 0.5 * self._k * jnp.sum(sum_sq_grad, axis=0)
 
-        # Sum of squares of gradient components (sum over 'dim' axis, assuming it's axis 1)
-        sum_sq_grad = jnp.sum(all_gradients ** 2, axis=1)  # Shape: (N_species, Nx, Ny, ...)
-        total_interfacial_density = self.k_laplacian * jnp.sum(sum_sq_grad, axis=0)  # Shape: (Nx, Ny, ...)
-
-        # 2. Calculate bulk contribution using vectorized operations
-        bulk_density = self.free_energy_model.bulk_free_energy(rho)
+        # 2. Calculate bulk contribution
+        bulk_density = self.free_energy_model.bulk_free_energy(phi)
 
         # 3. Combine and average
-        total_free_energy_density = bulk_density + total_interfacial_density  # Shape: (Nx, Ny, ...)
+        total_free_energy_density = bulk_density + interfacial_density
         total_fe = jnp.sum(total_free_energy_density) * self.V_bin
         avg_fe = total_fe / num_bins
 

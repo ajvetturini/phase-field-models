@@ -9,6 +9,7 @@ integrator = "euler"
 model = 'CH'
 use_autodiff = false  # Source of stability here!
 ch_diff_method = 'central'
+interface_scalar = 2.0
 
 [landau]
 epsilon = 0.9
