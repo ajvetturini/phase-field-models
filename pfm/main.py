@@ -1,17 +1,11 @@
 import numpy as np
 import toml
+import jax
 from pfm.energy_models import Landau, MagneticFilm
 from pfm.integrators import ExplicitEuler
 from pfm.models import CahnHilliard, AllenCahn
 import os
-import time
-"""
-Current Development TODO
-========================
-1) Then implement other energy models, as we can worry about integration schemes later
-2) Inform Bex / Lainie of this project, then work on JAX version
-3) Write arXiv paper w/ results and performance comparison with C++ code
-"""
+from functools import partial
 
 class SimulationManager:
     def __init__(self, config):
@@ -52,7 +46,6 @@ class SimulationManager:
                 def_name = os.path.join(self._write_path, f"trajectory_{i}.dat")
                 self._trajectories.append(open(def_name, "w"))
         self._traj_printed = 0
-        self._total_sim_time = 0
 
     def __del__(self):
         # Override default garbage collection so traj files are closed
@@ -136,7 +129,6 @@ class SimulationManager:
             self._print_current_state("init_", 0, rho=rho_0)
         fp = os.path.join(self._write_path, 'energy.dat')
         rho_n = rho_0  # init
-        t0 = time.time()
         with open(fp, "w") as mass_output:
             for t in range(self._steps):
                 if self._should_print_last(t) and self._config.get('verbose', True):
@@ -150,9 +142,8 @@ class SimulationManager:
 
                 # This is the write out to the trajectory
                 if self._print_mass_every > 0 and t % self._print_mass_every == 0:
-                    tstep = time.time() - t0
                     output_line = (f"{t * self._system.dt:.5f} {self.average_free_energy(rho_n):.8f} "
-                                   f"{self.average_mass(rho_n):.5f} {t} {tstep:.5f}")
+                                   f"{self.average_mass(rho_n):.5f} {t}")
                     mass_output.write(output_line + "\n")
                     if self._config.get('verbose', True):
                         print(output_line)
@@ -161,6 +152,26 @@ class SimulationManager:
 
         if self._config.get('verbose', True):
             self._print_current_state("last_", self._steps, rho=rho_n)
+
+    @partial(jax.jit, static_argnums=(0, 2))
+    def _evolve_n_steps(self, rho, nsteps):
+        """ Steps the integrator some N number of timesteps using a jax.lax.scan """
+        def _evolve(r, _):
+            r = self._system.evolve(r)
+            return r, None
+
+        r_n, _ = jax.lax.scan(_evolve, rho, length=nsteps)
+        return r_n
+
+    def test_jax_run(self):
+        try:
+            rho_0 = self._system.init_rho
+        except AttributeError:
+            rho_0 = self._system.init_phi
+
+        rho_n = self._evolve_n_steps(rho_0, self._steps)
+        print(rho_n)
+
 
 
 if __name__ == '__main__':

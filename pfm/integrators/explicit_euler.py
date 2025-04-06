@@ -79,8 +79,8 @@ class ExplicitEuler(Integrator):
         else:
             raise Exception('Invalid integrator method.')
 
-        if jnp.isnan(new_rho).any():
-            raise Exception('ERROR: NaN found in rho update. This is likely due to numerical method diverging.')
+        #if jnp.isnan(new_rho).any():
+        #    raise Exception('ERROR: NaN found in rho update. This is likely due to numerical method diverging.')
 
         return new_rho
 

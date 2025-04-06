@@ -5,7 +5,8 @@ import time
 c = toml.load(r'jax_long/input_landau.toml')
 manager = SimulationManager(c)
 start = time.time()
-manager.run()
+manager.test_jax_run()
+#manager.run()
 end = time.time() - start
 
 minutes = int(end // 60)

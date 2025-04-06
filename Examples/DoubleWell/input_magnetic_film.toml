@@ -10,7 +10,7 @@ model = 'AC'
 use_autodiff = false  # Source of stability here!
 ch_diff_method = 'central'
 interface_scalar = 1.0
-gamma = 0.9
+gamma = 0.05
 
 [magnetic_film]
 delta = 4.0
