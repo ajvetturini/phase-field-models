@@ -1,11 +1,13 @@
 import numpy as np
 import toml
 import jax
+import jax.numpy as jnp
 from pfm.energy_models import Landau, MagneticFilm
 from pfm.integrators import ExplicitEuler
 from pfm.models import CahnHilliard, AllenCahn
 import os
 from functools import partial
+
 
 class SimulationManager:
     def __init__(self, config):
@@ -37,19 +39,8 @@ class SimulationManager:
         self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator'))
         self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
                                            self._integrator, self._rng_seed)
-
-        # Setup simulation trajectory tracking:
-        num_species = self._free_energy_model.N_species()
-        self._trajectories = []
-        if self._print_trajectory_every > 0 or hasattr(self, '_log_n0'):  # Check if log printing is enabled
-            for i in range(num_species):
-                def_name = os.path.join(self._write_path, f"trajectory_{i}.dat")
-                self._trajectories.append(open(def_name, "w"))
         self._traj_printed = 0
-
-    def __del__(self):
-        # Override default garbage collection so traj files are closed
-        self.close()
+        self._trajectories = []
 
     def close(self):
         for traj in self._trajectories:
@@ -119,7 +110,17 @@ class SimulationManager:
     Main run method
     """
     def run(self):
-        """ Main function of the Simulation Manager, runs the simulation """
+        """ Main function of the Simulation Manager, runs the simulation. This is a "slow run" which does not leverage
+         jax outside of jit-ting the process. This should result in similar to CPU based C++ implementation, but is
+         not well-suited for very large (1e9-1e10) timestep simulations.
+         """
+        # Setup simulation trajectory tracking:
+        num_species = self._free_energy_model.N_species()
+        if self._print_trajectory_every > 0 or hasattr(self, '_log_n0'):  # Check if log printing is enabled
+            for i in range(num_species):
+                def_name = os.path.join(self._write_path, f"trajectory_{i}.dat")
+                self._trajectories.append(open(def_name, "w"))
+
         try:
             rho_0 = self._system.init_rho
         except AttributeError:
@@ -153,24 +154,144 @@ class SimulationManager:
         if self._config.get('verbose', True):
             self._print_current_state("last_", self._steps, rho=rho_n)
 
+    def run_jax(self):
+        """ uses evolve_n_steps and proper logging in arrays to store information """
+        try:
+            rho_0 = self._system.init_rho
+        except AttributeError:
+            rho_0 = self._system.init_phi
+
+        # We will have to pre-allocate space in this version to store the trajectory and mass outputs:
+        num_mass_states = self._steps // self._print_mass_every
+        num_traj_states = self._steps // self._print_trajectory_every
+        if num_mass_states > 250:
+            print('Print_mass_every set too high for JAX. For memory purposes, we limit this to 1000 energy evals.')
+            num_mass_states = 250
+            self._print_mass_every = self._steps // num_mass_states
+
+        if num_traj_states > 250:
+            print('print_trajectory_every set too high for JAX. For memory purposes, we limit this to 250 states.')
+            num_traj_states = 250
+            self._print_trajectory_every = self._steps // num_traj_states
+
+        # init rho and logging arrays
+        self._print_current_state("init_", 0, rho=rho_0)  # Print init state
+        rho_n = rho_0  # init
+        num_energy_logs_per_traj_store = self._print_trajectory_every // self._print_mass_every
+        leading_dim = num_mass_states // num_energy_logs_per_traj_store
+        energy_log = np.zeros((leading_dim, num_energy_logs_per_traj_store, 4), dtype=np.float32)
+
+        N, Ns, dim = self._system.N, self._free_energy_model.N_species(), self._system.dim
+        if dim == 1:
+            dim_str = f'{N}'
+            traj_log = np.zeros((num_traj_states, Ns, N,), dtype=np.float16)
+        elif dim == 2:
+            dim_str = f'{N}x{N}'
+            traj_log = np.zeros((num_traj_states, Ns, N, N), dtype=np.float16)
+        elif dim == 3:
+            dim_str = f'{N}x{N}x{N}'
+            traj_log = np.zeros((num_traj_states, Ns, N, N, N), dtype=np.float16)
+        else:
+            raise Exception('Invalid value of dimension')
+
+        ns = self._steps // num_traj_states
+        for i in range(num_traj_states):
+            # Blank energy array to store output
+            energy_at_step = jnp.zeros((num_energy_logs_per_traj_store, 4), dtype=jnp.float32)
+            rho_n, e_n = self._evolve_n_steps(rho_n, ns, energy_at_step, self._print_mass_every)
+            energy_log[i] = e_n
+            traj_log[i] = np.array(rho_n, dtype=np.float16)
+
+        # Print final state and logs
+        self._print_current_state("last_", self._steps, rho=rho_n)
+
+        print('Beginning write out of final files, this may take a moment...')
+        self._write_output_jax_arrays(traj_log, energy_log, np.arange(num_traj_states+1)*ns, dim_str, rho_n)
+
+
+    def _write_output_jax_arrays(self, trajectory_lost, energy_log, steps, dim_string, final_rho):
+        """ Writes a simple ASCII file of the trajectory and energies tracked during the simulation """
+        shaped_energy = energy_log.reshape((-1, energy_log.shape[2]))
+        write_list = []
+        s1, s2 = 0, 0
+        for i in shaped_energy:
+            write_list.append(f'{s1:.5f} {i[1]:.8f} {i[2]:.5f} {s2:d}')
+            if s1 == 0:
+                add1 = shaped_energy[1][0]
+                add2 = int(shaped_energy[1][-1])
+            s1 += add1
+            s2 += add2
+
+        with open(os.path.join(self._write_path, 'energy.dat'), 'w') as file:
+            for item in write_list:
+                file.write(item + '\n')
+
+        # Repeat for trajectory:
+        n_traj, n_spec = trajectory_lost.shape[0], trajectory_lost.shape[1]
+        for i in range(n_spec):
+            with open(os.path.join(self._write_path, f"trajectory_species_{i}.dat"), 'w') as file:
+
+                for j in range(n_traj):
+                    header_str = f'step = {steps[j]}, species = {i}, size = ' + dim_string + '\n'
+                    file.write(header_str)
+                    cur_frame = trajectory_lost[j, i]
+
+                    # Write the current 2D frame and a new line:
+                    row_strings = [' '.join(map(str, row)) for row in cur_frame]
+                    for row in row_strings:
+                        file.write(row + '\n')
+
+                # Then write the final_rho value:
+                header_str = f'step = {steps[j+1]}, species = {i}, size = ' + dim_string
+                file.write(header_str)
+                cur_frame = final_rho[i]
+
+                # Write the current 2D frame and a new line:
+                row_strings = [' '.join(map(str, row)) for row in cur_frame]
+                for row in row_strings:
+                    file.write(row + '\n')
+                file.write('\n')
+
+
+
     @partial(jax.jit, static_argnums=(0, 2))
-    def _evolve_n_steps(self, rho, nsteps):
+    def _evolve_n_steps(self, rho, nsteps, energy_at_step, energy_every):
         """ Steps the integrator some N number of timesteps using a jax.lax.scan """
-        def _evolve(r, _):
-            r = self._system.evolve(r)
-            return r, None
 
-        r_n, _ = jax.lax.scan(_evolve, rho, length=nsteps)
-        return r_n
+        def _evolve(carry, count):
+            r, el, ec = carry
+            r = self._system.evolve(r)  # Evolve state first
+            log_energy_cond = (jnp.mod(count, energy_every) == 0)
 
-    def test_jax_run(self):
+            def _log_energy():
+                # Energy output format
+                energy_values = jnp.array([
+                    count * self._system.dt,  # Time at end of step count+1
+                    self.average_free_energy(r),
+                    self.average_mass(r),
+                    count
+                ], dtype=jnp.float32)
+                return energy_values
+
+            (el, ec) = jax.lax.cond(
+                log_energy_cond,
+                lambda: (el.at[ec].set(_log_energy()), ec+1),  # Branch that logs
+                lambda: (el, ec)  # Branch that does nothing
+            )
+
+            return (r, el, ec), None
+
+        (r_n, el, ec), _ = jax.lax.scan(_evolve, (rho, energy_at_step, 0), jnp.arange(nsteps), nsteps)
+        return r_n, el
+
+    def run_system_no_logging(self):
         try:
             rho_0 = self._system.init_rho
         except AttributeError:
             rho_0 = self._system.init_phi
 
         rho_n = self._evolve_n_steps(rho_0, self._steps)
-        print(rho_n)
+        return rho_n
 
 
 

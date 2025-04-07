@@ -11,7 +11,7 @@ class Landau(FreeEnergyModel):
         self._energy_config = config.get('landau')
         self._epsilon = jnp.array(self._energy_config.get('epsilon', 1.0), dtype=jnp.float64)
 
-        if self._user_to_internal != 1.0:
+        if self._inverse_scaling_factor != 1.0:
             raise Exception('Landau free energy model does not support distance_scaling_factors from 1.0')
 
         self._autograd_fn = jax.jit(jax.grad(self._elementwise_bulk_free_energy))

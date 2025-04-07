@@ -10,8 +10,6 @@ class ExplicitEuler(Integrator):
 
     def __init__(self, model, config):
         super().__init__(model, config)
-        self._N_per_dim_minus_one = self._N_per_dim - 1
-        self._log2_N_per_dim = int(jnp.log2(self._N_per_dim))
         self._dx = jnp.array(self._dx, dtype=jnp.float64)
         self._dt = jnp.array(self._dt, dtype=jnp.float64)
 
@@ -79,7 +77,7 @@ class ExplicitEuler(Integrator):
         else:
             raise Exception('Invalid integrator method.')
 
-        #if jnp.isnan(new_rho).any():
+        #if jnp.isnan(new_rho).any():  # Can't uncomment or jit will break
         #    raise Exception('ERROR: NaN found in rho update. This is likely due to numerical method diverging.')
 
         return new_rho

@@ -15,20 +15,15 @@ class AllenCahn:
         self.dt = config.get('dt')
         self.dx = config.get('dx', 1.0)
         self._k = config.get('k', 1.0)
-        self._internal_to_user = config.get('distance_scaling_factor', 1.0)
-        self._user_to_internal = 1.0 / self._internal_to_user
+        self._distance_scaling_factor = config.get('distance_scaling_factor', 1.0)
+        self._inverse_scaling_factor = 1.0 / self._distance_scaling_factor
         self.dim = config.get('dim', 2)
         self.free_energy_model = free_energy_model
         if self.dim <= 0 or self.dim > 2:
             raise Exception('Unable to proceed, currently only support for 1D and 2D is implemented')
 
-        log2N = jnp.log2(self.N)
         if jnp.mod(self.N, 2) != 0.:
             raise ValueError("N should be a power of 2")
-
-        self.N_minus_one = self.N - 1
-        self.bits = int(log2N)
-        self.grid_size = self.N ** self.dim
 
         num_species = free_energy_model.N_species()
         shape = tuple([num_species] + [self.N] * self.dim)
@@ -88,22 +83,20 @@ class AllenCahn:
         else:
             raise ValueError("Either 'initial_density' or 'load_from' should be specified")
 
-        self.dx *= self._user_to_internal  # Proportional to M
-        self.gamma *= self._user_to_internal ** 3 # Scaling for mobility/kinetic coefficient
-        phi /= self._user_to_internal ** 3
+        self.dx *= self._inverse_scaling_factor  # Proportional to M
+        self.gamma *= self._inverse_scaling_factor ** 3 # Scaling for mobility/kinetic coefficient
+        phi /= self._inverse_scaling_factor ** 3
 
         self.V_bin = self.dx ** 3
 
         self.integrator = integrator
-        self._output_ready = False
-        self._grid_size_str = ""
         dtype = config.get('float_type', jnp.float64)
         self._float_type = dtype
         if dtype != jnp.float64:
             print('NOTE: 64-bit precision not being used, stability may be off.')
         self.init_phi = jnp.array(phi, dtype=dtype)  # initialized phi
 
-        self._grad_diff_method = config.get('ac_diff_method', 'fwd')  # Forward or central difference in gradient
+        self._grad_diff_method = config.get('ac_diff_method', 'central')  # Forward or central difference in gradient
 
     @partial(jax.jit, static_argnums=(0,))
     def gradient(self, field: jnp.ndarray) -> jnp.ndarray:
@@ -193,4 +186,4 @@ class AllenCahn:
         output.write("\n")
 
     def _density_to_user(self, v):
-        return v / (self._internal_to_user ** 3)
+        return v / (self._distance_scaling_factor ** 3)

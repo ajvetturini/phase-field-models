@@ -23,14 +23,14 @@ class Integrator:
         self._N_bins = np.prod(self._rho.shape[1:])  # Total # of spatial bins (elements)
 
         # Setup scaling factor:
-        internal_to_user = config.get('distance_scaling_factor', 1.0)
-        user_to_internal = 1.0 / internal_to_user
-        self._dx *= user_to_internal                      # Proportional to m
-        self._M /= user_to_internal                       # Proportional to m^-1
-        self._k_laplacian *= np.pow(user_to_internal, 5)  # Proportional to m^5
+        distance_scaling_factor = config.get('distance_scaling_factor', 1.0)
+        inverse_scaling_factor = 1.0 / distance_scaling_factor
+        self._dx *= inverse_scaling_factor                      # Proportional to m
+        self._M /= inverse_scaling_factor                       # Proportional to m^-1
+        self._k_laplacian *= np.pow(inverse_scaling_factor, 5)  # Proportional to m^5
 
-        self._user_to_internal = user_to_internal
-        self._internal_to_user = internal_to_user
+        self._inverse_scaling_factor = inverse_scaling_factor
+        self._distance_scaling_factor = distance_scaling_factor
         self._use_autodiff = config.get('use_autodiff', False)  # Use manual derivative by default
         self._interface_scalar = config.get('interface_scalar', 1.)  # Scales interface energy
 

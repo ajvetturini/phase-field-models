@@ -5,7 +5,7 @@ import time
 c = toml.load(r'jax_long/input_landau.toml')
 manager = SimulationManager(c)
 start = time.time()
-manager.test_jax_run()
+manager.run_jax()
 #manager.run()
 end = time.time() - start
 

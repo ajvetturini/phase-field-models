@@ -7,8 +7,8 @@ class FreeEnergyModel:
 
     def __init__(self, config):
         self._config = config
-        self._user_to_internal = 1.0 / config.get("distance_scaling_factor", 1.0)
-        self._density_conversion_factor = self._user_to_internal ** 3
+        self._inverse_scaling_factor = 1.0 / config.get("distance_scaling_factor", 1.0)
+        self._density_conversion_factor = self._inverse_scaling_factor ** 3
 
     def average_energy(self, u):
         raise NotImplementedError('Not implemented here.')

@@ -12,9 +12,6 @@ class MagneticFilm(FreeEnergyModel):  # Assuming you have a FreeEnergyModel base
         self._energy_config = config.get('magnetic_film')
         self._delta = jnp.array(self._energy_config.get('delta', 1.0), dtype=jnp.float64)
 
-        if self._user_to_internal != 1.0:
-            raise Exception('DoubleWell free energy model does not support distance_scaling_factors from 1.0')
-
         self._autograd_fn = jax.jit(jax.grad(self._elementwise_bulk_free_energy))
 
     def N_species(self):
