@@ -19,8 +19,8 @@ plot_all_densities(files1, kwargs_list)
 #plot_all_densities(files2, kwargs_list)
 #plot_all_densities(files3, kwargs_list)
 #plot_all_densities(files4, kwargs_list)
-plot_all_densities(files5, kwargs_list)
-#animate(r'./jax_long/trajectory_0.dat', cmap='plasma', interval=750)
+#plot_all_densities(files5, kwargs_list)
+animate(r'./jax_long/trajectory_species_0.dat', cmap='plasma', interval=750)
 #animate(r'./cuda_long/trajectory_0.dat', cmap='plasma', interval=750)
 
 files = [

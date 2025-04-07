@@ -232,7 +232,7 @@ class SimulationManager:
             with open(os.path.join(self._write_path, f"trajectory_species_{i}.dat"), 'w') as file:
 
                 for j in range(n_traj):
-                    header_str = f'step = {steps[j]}, species = {i}, size = ' + dim_string + '\n'
+                    header_str = f'# step = {steps[j]}, species = {i}, size = ' + dim_string + '\n'
                     file.write(header_str)
                     cur_frame = trajectory_lost[j, i]
 
