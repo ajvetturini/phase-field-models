@@ -1,4 +1,4 @@
-steps = 10000000
+steps = 10000
 print_every = 10000
 print_trajectory_every = 200000
 N = 64

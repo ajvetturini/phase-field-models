@@ -10,7 +10,7 @@ from functools import partial
 
 
 class SimulationManager:
-    def __init__(self, config):
+    def __init__(self, config, custom_initial_condition=None):
         self._steps = config.get('steps', 100)
         self._print_mass_every = config.get('print_every', 10)
         self._print_trajectory_strategy = config.get('print_trajectory_strategy', 'linear').lower()
@@ -38,9 +38,10 @@ class SimulationManager:
         self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'))
         self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator'))
         self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
-                                           self._integrator, self._rng_seed)
+                                           self._integrator, self._rng_seed, custom_fn=custom_initial_condition)
         self._traj_printed = 0
         self._trajectories = []
+        self._custom_initial_condition = custom_initial_condition
 
     def close(self):
         for traj in self._trajectories:
@@ -65,11 +66,11 @@ class SimulationManager:
             raise Exception('Invalid integrator scheme, valid options are: euler, ')
 
     @staticmethod
-    def _read_in_model(model, config, model_name, integrator, rng_seed):
+    def _read_in_model(model, config, model_name, integrator, rng_seed, custom_fn):
         if model_name.lower() == 'ch':
-            return CahnHilliard(model, config, integrator, rng_seed)
+            return CahnHilliard(model, config, integrator, rng_seed, custom_fn=custom_fn)
         elif model_name.lower() == 'ac':
-            return AllenCahn(model, config, integrator, rng_seed)
+            return AllenCahn(model, config, integrator, rng_seed, custom_fn=custom_fn)
         else:
             raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ac (Allen-Cahn)')
 
@@ -162,23 +163,23 @@ class SimulationManager:
             rho_0 = self._system.init_phi
 
         # We will have to pre-allocate space in this version to store the trajectory and mass outputs:
-        num_mass_states = self._steps // self._print_mass_every
-        num_traj_states = self._steps // self._print_trajectory_every
+        num_mass_states = max(1, self._steps // self._print_mass_every)
+        num_traj_states = max(1, self._steps // self._print_trajectory_every)
         if num_mass_states > 250:
             print('Print_mass_every set too high for JAX. For memory purposes, we limit this to 1000 energy evals.')
             num_mass_states = 250
-            self._print_mass_every = self._steps // num_mass_states
+            self._print_mass_every = max(self._steps, self._steps // num_mass_states)
 
         if num_traj_states > 250:
             print('print_trajectory_every set too high for JAX. For memory purposes, we limit this to 250 states.')
             num_traj_states = 250
-            self._print_trajectory_every = self._steps // num_traj_states
+            self._print_trajectory_every = max(self._steps, self._steps // num_traj_states)
 
         # init rho and logging arrays
         self._print_current_state("init_", 0, rho=rho_0)  # Print init state
         rho_n = rho_0  # init
         num_energy_logs_per_traj_store = self._print_trajectory_every // self._print_mass_every
-        leading_dim = num_mass_states // num_energy_logs_per_traj_store
+        leading_dim = max(1, num_mass_states // num_energy_logs_per_traj_store)
         energy_log = np.zeros((leading_dim, num_energy_logs_per_traj_store, 4), dtype=np.float32)
 
         N, Ns, dim = self._system.N, self._free_energy_model.N_species(), self._system.dim
@@ -194,7 +195,7 @@ class SimulationManager:
         else:
             raise Exception('Invalid value of dimension')
 
-        ns = self._steps // num_traj_states
+        ns = max(1, self._steps // num_traj_states)
         for i in range(num_traj_states):
             # Blank energy array to store output
             energy_at_step = jnp.zeros((num_energy_logs_per_traj_store, 4), dtype=jnp.float32)

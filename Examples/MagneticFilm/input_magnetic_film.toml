@@ -1,0 +1,14 @@
+steps = 5000
+print_every = 500
+print_trajectory_every = 250
+N = 100
+dt = 0.01
+free_energy = "magnetic_film"
+integrator = "euler"
+model = 'AC'
+use_autodiff = false
+gamma = 1.0
+custom_initial_condition = true
+
+[magnetic_film]
+delta = 4.0

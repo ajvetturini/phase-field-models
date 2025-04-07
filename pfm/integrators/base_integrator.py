@@ -32,7 +32,7 @@ class Integrator:
         self._inverse_scaling_factor = inverse_scaling_factor
         self._distance_scaling_factor = distance_scaling_factor
         self._use_autodiff = config.get('use_autodiff', False)  # Use manual derivative by default
-        self._interface_scalar = config.get('interface_scalar', 1.)  # Scales interface energy
+        self._interface_scalar = config.get('interface_scalar', 1.)  # Scales interface energy, defaults to 1
 
     def set_initial_rho(self, r):
         self._rho[:] = r[:]
