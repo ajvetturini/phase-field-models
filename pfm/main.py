@@ -1,17 +1,11 @@
 import numpy as np
 import toml
+import jax
 from pfm.energy_models import Landau, MagneticFilm
 from pfm.integrators import ExplicitEuler
 from pfm.models import CahnHilliard, AllenCahn
 import os
-
-"""
-Current Development TODO
-========================
-1) Then implement other energy models, as we can worry about integration schemes later
-2) Inform Bex / Lainie of this project, then work on JAX version
-3) Write arXiv paper w/ results and performance comparison with C++ code
-"""
+from functools import partial
 
 class SimulationManager:
     def __init__(self, config):
@@ -158,6 +152,26 @@ class SimulationManager:
 
         if self._config.get('verbose', True):
             self._print_current_state("last_", self._steps, rho=rho_n)
+
+    @partial(jax.jit, static_argnums=(0, 2))
+    def _evolve_n_steps(self, rho, nsteps):
+        """ Steps the integrator some N number of timesteps using a jax.lax.scan """
+        def _evolve(r, _):
+            r = self._system.evolve(r)
+            return r, None
+
+        r_n, _ = jax.lax.scan(_evolve, rho, length=nsteps)
+        return r_n
+
+    def test_jax_run(self):
+        try:
+            rho_0 = self._system.init_rho
+        except AttributeError:
+            rho_0 = self._system.init_phi
+
+        rho_n = self._evolve_n_steps(rho_0, self._steps)
+        print(rho_n)
+
 
 
 if __name__ == '__main__':
