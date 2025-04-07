@@ -24,7 +24,7 @@ Below is a list of features that would be nice to be implemented. Please let me 
 # Citations / Links
 To learn more about the free energy models implemented in this package, please see the citations below. If you used this package and would like to have a paper listed here, please let me know.
 
-1) ``Wertheim Theory`` | Capppa, M., Sciortino, F., Rovigatti, L., "A phase-field model for DNA self-assembly", arXiv (2025). | [LINK](https://arxiv.org/pdf/2501.04790)
+1) ``Wertheim Theory`` | Capppa, M., Sciortino, F., Rovigatti, L., "A phase-field model for DNA self-assembly", arXiv (2025). | <a href="https://arxiv.org/pdf/2501.04790" target="_blank">LINK</a>
 2) ``Saleh Model`` | Jeon, B. Nguyen, D. T., and Saleh, A. O., "Sequence-controlled adhesion and microemulsification in a two-phase system of DNA liquid droplets", Journal of Physical Chemistry 123 (2020). | <a href="https://pubs.acs.org/doi/10.1021/acs.jpcb.0c06911" target="_blank">LINK</a>
 
 # Performance Comparison
