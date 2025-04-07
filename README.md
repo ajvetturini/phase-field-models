@@ -1,5 +1,5 @@
 # Phase Field Modelling using JAX
-Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model algorithms (inspired from https://github.com/lorenzo-rovigatti/cahn-hilliard) alongside reproduced results. Please see their [arXiv paper](https://arxiv.org/pdf/2501.04790) to get an overview of the free energy models implemented in this package. Overall, if you are unfamiliar with phase fields / other mesoscopic simulations, I'd recommend reading Ch 12 and 13 of Introduction to Computational Materials Science by Richard Lesar.
+Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model algorithms (inspired from https://github.com/lorenzo-rovigatti/cahn-hilliard) alongside reproduced results. Overall, if you are unfamiliar with phase fields / other mesoscopic simulations, I'd recommend reading Ch 12 and 13 of Introduction to Computational Materials Science by Richard Lesar.
 
 Overall, these are lengthy simulations if you do not have a hardware accelerator (i.e., GPU / TPU). This jax-based version should still run on a CPU and allow you to still simulate more coarse / lower time step systems due to JIT. Overall, jax should be accessible on any type of computer (Windows, Mac, Linux) but Linux is preferred for GPU acceleration. For more information, see [here](https://docs.jax.dev/en/latest/)
 
@@ -24,9 +24,8 @@ Below is a list of features that would be nice to be implemented. Please let me 
 # Citations / Links
 To learn more about the free energy models implemented in this package, please see the citations below. If you used this package and would like to have a paper listed here, please let me know.
 
-1) [Wertheim Theory](https://arxiv.org/pdf/2501.04790) | Capppa, M., Sciortino, F., Rovigatti, L., "A phase-field model for DNA self-assembly" arXiv (2025). 
-2) ``[Saleh Free Theory]``([https://arxiv.org/pdf/2501.04790](https://pubs.acs.org/doi/10.1021/acs.jpcb.0c06911)) | Jeon, B. Nguyen, D. T., and Saleh, A. O., "Sequence-controlled adhesion and microemulsification in a two-phase system of DNA liquid droplets", Journal of Physical Chemistry 123 (2020).
-3) 
+1) ``Wertheim Theory`` | Capppa, M., Sciortino, F., Rovigatti, L., "A phase-field model for DNA self-assembly", arXiv (2025). | [LINK](https://arxiv.org/pdf/2501.04790)
+2) ``Saleh Free Theory`` | Jeon, B. Nguyen, D. T., and Saleh, A. O., "Sequence-controlled adhesion and microemulsification in a two-phase system of DNA liquid droplets", Journal of Physical Chemistry 123 (2020). | [LINK](https://pubs.acs.org/doi/10.1021/acs.jpcb.0c06911)
 
 # Performance Comparison
 Coming soon!
