@@ -32,7 +32,7 @@ class SimpleWertheim(FreeEnergyModel):
         return 1
 
     def _X(self, rho):
-        """ Calculates fraction of moleculas that are bonded (or unbonded) using the valence delta specified """
+        """ Calculates fraction of molecules that are bonded (or unbounded) using the valence delta specified """
         return (-1.0 + jnp.sqrt(1.0 + 2.0 * self._two_valence_delta * rho)) / (self._two_valence_delta * rho)
 
     @partial(jax.jit, static_argnums=(0,))

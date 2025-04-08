@@ -7,6 +7,7 @@ initial_density = [2e-5, 2e-5, 2e-5, 2e-5]
 free_energy = "generic_wertheim"
 dx = 10
 k = 1e6
+write_path = './jax/'
 
 [mobility]
 type = "regularised"

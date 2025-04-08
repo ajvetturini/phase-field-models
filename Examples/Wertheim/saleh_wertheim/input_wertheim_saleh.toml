@@ -7,6 +7,7 @@ initial_density = 9e-5
 free_energy = "saleh"
 dx = 10
 k = 1e6
+write_path = './jax/'
 
 [saleh]
 valence = [4, 4, 4]

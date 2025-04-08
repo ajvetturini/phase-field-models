@@ -2,7 +2,7 @@ import numpy as np
 import toml
 import jax
 import jax.numpy as jnp
-from pfm.energy_models import Landau, SimpleWertheim
+from pfm.energy_models import Landau, SimpleWertheim, GenericWertheim, SalehWertheim
 from pfm.integrators import ExplicitEuler
 from pfm.models import CahnHilliard, AllenCahn
 import os
@@ -58,6 +58,10 @@ class SimulationManager:
             return Landau(config)
         elif free_energy.lower() == 'simple_wertheim':
             return SimpleWertheim(config)
+        elif free_energy.lower() == 'generic_wertheim':
+            return GenericWertheim(config)
+        elif free_energy.lower() == 'saleh' or free_energy.lower() == 'saleh_wertheim':
+            return SalehWertheim(config)
         elif free_energy.lower() == 'custom':
             return CustomEnergy(config)
 
