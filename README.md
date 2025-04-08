@@ -6,6 +6,7 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
 # Implementation Details
 
 - The code here supports 1D and 2D simulations and take a TOML-file based input detailing the simulation parameters.
+- Phase field models implemented: ``Cahn-Hilliard`` | ``Allen-Cahn`` |
 - Free energy models implemented: ``Landau`` | 
 - Numerical Integrators implemented: ``Explicit Euler`` |
 - Automatic Differentiation is supported for the free energy models. However, you must be careful about dimensionality and size. If N is large with many species, you're array will grow very large and memory requirements will become a concern. 
