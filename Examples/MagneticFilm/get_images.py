@@ -12,6 +12,6 @@ files2 = [r'init_0.dat', r'last_0.dat']
 kwargs_list = [{"cmap": "plasma"}, {"cmap": "plasma"}]
 
 plot_all_densities(files2, kwargs_list)
-animate('trajectory_0.dat')
+animate('trajectory_species_0.dat')
 plot_energy('energy.dat')
 

@@ -118,27 +118,24 @@ def animate(filepath: str, interpolation_factor: int = 5, sigma: float = 0.0, **
 
     all_frames = []
     frame_data = []
-    N = _infer_N(filepath)
     with open(filepath, 'r') as input_file:
-        while True:
-            line = input_file.readline()
-            if not line:  # Check for end of file (empty string)
-                if frame_data:
-                    all_frames.append(np.array(frame_data))
-                break  # Exit the loop when the end of the file is reached
+        for line in input_file:
             cleaned_line = line.split()
             if not cleaned_line:
-                break
-            elif '#' in line or cleaned_line[0] == 'step':
+                continue
+            elif '#' in line or cleaned_line[1] == 'step':
                 if frame_data:
                     all_frames.append(np.array(frame_data))
                 frame_data = []  # reset
                 continue
-            frame_data.extend(np.array([float(val) for val in cleaned_line]))
-
+            try:
+                frame_data.extend(np.array([float(val) for val in cleaned_line]))
+            except:
+                print(f'')
     smoothed_frames = [gaussian_filter(frame, sigma=sigma) if sigma > 0 else frame for frame in all_frames]
 
     interpolated_frames = []
+    N = int(np.sqrt(all_frames[0].shape[0]))
     for i in range(len(smoothed_frames) - 1):
         frame1 = smoothed_frames[i]
         frame2 = smoothed_frames[i + 1]

@@ -26,19 +26,19 @@ class ExplicitEuler(Integrator):
     @partial(jax.jit, static_argnums=(0, 2))
     def _evolve_cahn_hilliard(self, rho, dEdp):
         """
-        Explicit Euler step implemented using jax functionalities.
+        Explicit Euler step for Cahn-Hilliart
 
         Computes:
         rho(t+dt) = rho(t) + M * Δ (∂F/∂ρ) * dt
         """
         # Compute dF/dρ per species and bin
-        dF_dRho = jax.vmap(dEdp, in_axes=(0, 0))(
+        bulk_term = jax.vmap(dEdp, in_axes=(0, 0))(
             jnp.arange(self._model.N_species()), rho
         )  # shape: (N_species, Nx, Ny)
 
         lap_rho = self._cell_laplacian(rho)  # shape: (N_species, Nx, Ny)
-        d_rho = dF_dRho - self._interface_scalar * self._k_laplacian * lap_rho  # This is also (N_species, Nx, Nx) (for 2D)
-        lap_d_rho = self._cell_laplacian(d_rho)   # Same as above
+        chemical_potential = bulk_term - self._interface_scalar * self._k_laplacian * lap_rho
+        lap_d_rho = self._cell_laplacian(chemical_potential)
 
         return rho + self._M * lap_d_rho * self._dt
 
@@ -54,16 +54,14 @@ class ExplicitEuler(Integrator):
         We'll approximate kappa * laplacian(phi) using the _k_laplacian and our laplacian method.
         """
         # Compute dF/dphi (chemical potential) per species and bin
-        dF_dPhi_bulk = jax.vmap(dEdp, in_axes=(0, 0))(
+        bulk_energy = jax.vmap(dEdp, in_axes=(0, 0))(
             jnp.arange(self._model.N_species()), phi
         )  # shape: (N_species, Nx, Ny)
 
         lap_phi = self._cell_laplacian(phi)  # shape: (N_species, Nx, Ny)
-        chemical_potential = dF_dPhi_bulk - self._interface_scalar * self._k_laplacian * lap_phi
+        energy_difference = bulk_energy - (self._interface_scalar * self._k_laplacian * lap_phi)
 
-        d_phi_dt = -self._gamma * chemical_potential
-
-        return phi + d_phi_dt * self._dt
+        return phi - (self._L_phi * energy_difference * self._dt)
 
     def evolve(self, rho, method='ch'):
         """ The state variable (rho, phi) is passed in and updated via Explicit Euler """

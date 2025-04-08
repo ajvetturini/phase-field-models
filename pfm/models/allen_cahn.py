@@ -13,12 +13,12 @@ class AllenCahn(PhaseFieldModel):
         # If it is None, the below super() is fine as either initial_density or load_from would
         # need to be specified (or an error will just occur)
         super().__init__(free_energy_model, config, integrator, rng, field_name="phi", custom_fn=custom_fn)
-        self.gamma = config.get('gamma', 1.0)  # Mobility/kinetic coefficient
+        self._L_phi = config.get('L_phi', 1.0)
         self.k = config.get('k', 1.0)
 
         # Set scaling if a distance_factor was specified (this is usually just multiplying by 1 however):
-        self.gamma /= self._inverse_scaling_factor   # Proportional to gamma^-1
-        self.k *= self._inverse_scaling_factor ** 5  # Proportional to gamma^5
+        self._L_phi /= self._inverse_scaling_factor   # Proportional to gamma^-1
+        self.k *= self._inverse_scaling_factor ** 5   # Proportional to gamma^5
 
     def evolve(self, rho):
         # Need to specify allen cahn below as integrator manages this

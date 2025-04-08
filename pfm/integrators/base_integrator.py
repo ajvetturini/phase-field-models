@@ -11,7 +11,7 @@ class Integrator:
         self._dt = config.get('dt', 0.001)
         self._k_laplacian = config.get('k', 1.0)
         self._M = config.get('M', 1.0)
-        self._gamma = config.get('gamma', 1.0)
+        self._L_phi = config.get('L_phi', 1.0)
         self._dx = config.get('dx', 1.0)
         self._dim = config.get('dim', 2)
         if self._dim <= 0 or self._dim > 2:
@@ -27,6 +27,7 @@ class Integrator:
         inverse_scaling_factor = 1.0 / distance_scaling_factor
         self._dx *= inverse_scaling_factor                      # Proportional to m
         self._M /= inverse_scaling_factor                       # Proportional to m^-1
+        self._L_phi /= inverse_scaling_factor
         self._k_laplacian *= np.pow(inverse_scaling_factor, 5)  # Proportional to m^5
 
         self._inverse_scaling_factor = inverse_scaling_factor

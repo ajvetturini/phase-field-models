@@ -10,7 +10,7 @@ from functools import partial
 
 
 class SimulationManager:
-    def __init__(self, config, custom_initial_condition=None):
+    def __init__(self, config, custom_energy=None, custom_initial_condition=None):
         self._steps = config.get('steps', 100)
         self._print_mass_every = config.get('print_every', 10)
         self._print_trajectory_strategy = config.get('print_trajectory_strategy', 'linear').lower()
@@ -35,7 +35,9 @@ class SimulationManager:
             print(f'RNG seed not specified, using seed: {self._rng_seed}')
 
         # Setup the free energy model, integrator, and system based on if jax is being used:
-        self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'))
+        # The custom_energy and custom_initial_conditions might be None (which is fine) but are still passed in
+        # The use of the TOML config dictates the use of these custom functions
+        self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'), custom_energy)
         self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator'))
         self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
                                            self._integrator, self._rng_seed, custom_fn=custom_initial_condition)
@@ -49,14 +51,16 @@ class SimulationManager:
                 traj.close()
 
     @staticmethod
-    def _read_in_energy_model(config, free_energy):
+    def _read_in_energy_model(config, free_energy, CustomEnergy):
         if free_energy.lower() == 'landau':
             return Landau(config)
         elif free_energy.lower() == 'magnetic_film':
             return MagneticFilm(config)
+        elif free_energy.lower() == 'custom':
+            return CustomEnergy(config)
 
         else:
-            raise Exception('Invalid free_energy specified in the config, valid options are: landau, magnetic_film')
+            raise Exception('Invalid free_energy specified in the config, valid options are: landau, custom')
 
     @staticmethod
     def _read_in_integrator(model, config, integrator_name):
@@ -178,7 +182,7 @@ class SimulationManager:
         # init rho and logging arrays
         self._print_current_state("init_", 0, rho=rho_0)  # Print init state
         rho_n = rho_0  # init
-        num_energy_logs_per_traj_store = self._print_trajectory_every // self._print_mass_every
+        num_energy_logs_per_traj_store = max(1, self._print_trajectory_every // self._print_mass_every)
         leading_dim = max(1, num_mass_states // num_energy_logs_per_traj_store)
         energy_log = np.zeros((leading_dim, num_energy_logs_per_traj_store, 4), dtype=np.float32)
 
@@ -196,18 +200,24 @@ class SimulationManager:
             raise Exception('Invalid value of dimension')
 
         ns = max(1, self._steps // num_traj_states)
+        energy_log2 = []
+        traj_log2 = []
         for i in range(num_traj_states):
             # Blank energy array to store output
             energy_at_step = jnp.zeros((num_energy_logs_per_traj_store, 4), dtype=jnp.float32)
             rho_n, e_n = self._evolve_n_steps(rho_n, ns, energy_at_step, self._print_mass_every)
-            energy_log[i] = e_n
-            traj_log[i] = np.array(rho_n, dtype=np.float16)
+            #energy_log[i] = e_n
+            #traj_log[i] = np.array(rho_n, dtype=np.float16)
+            energy_log2.append(np.array(e_n, dtype=np.float32))
+            traj_log2.append(np.array(rho_n, dtype=np.float32))
 
         # Print final state and logs
+        energy_log2 = np.array(energy_log2)
+        traj_log2 = np.array(traj_log2)
         self._print_current_state("last_", self._steps, rho=rho_n)
 
         print('Beginning write out of final files, this may take a moment...')
-        self._write_output_jax_arrays(traj_log, energy_log, np.arange(num_traj_states+1)*ns, dim_str, rho_n)
+        self._write_output_jax_arrays(traj_log2, energy_log2, np.arange(num_traj_states+1)*ns, dim_str, rho_n)
 
 
     def _write_output_jax_arrays(self, trajectory_lost, energy_log, steps, dim_string, final_rho):
@@ -243,7 +253,7 @@ class SimulationManager:
                         file.write(row + '\n')
 
                 # Then write the final_rho value:
-                header_str = f'step = {steps[j+1]}, species = {i}, size = ' + dim_string
+                header_str = f'# step = {steps[j+1]}, species = {i}, size = ' + dim_string + '\n'
                 file.write(header_str)
                 cur_frame = final_rho[i]
 
