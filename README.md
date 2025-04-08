@@ -61,4 +61,5 @@ pip install "jax[cuda]" matplotlib toml
 pip install jax matplotlib toml
 ```
 
-
+# Got questions?
+Feel free to reach out to me at avetturi [at] andrew [dot] cmu [dot] edu or open a PR
