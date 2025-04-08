@@ -55,8 +55,12 @@ def custom_initial_condition(init_phi):
 
     return init_phi
 
+# NOTES
+# Overall, this is a SHORT simulation! We are looking at the early separation (first few hundred timesteps)
+# The system achieves a minimum relatively quickly (within few thousand steps), so if you run a system
+# too long, the results file may not tell an accurate story.
 c = toml.load('input_magnetic_film.toml')
-manager = SimulationManager(c, custom_energy=MagneticFilm, custom_initial_condition=custom_initial_condition)  # Just pass the fn, no ()
+manager = SimulationManager(c, custom_energy=MagneticFilm, custom_initial_condition=custom_initial_condition)
 start = time.time()
 manager.run_jax()
 end = time.time() - start

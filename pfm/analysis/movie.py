@@ -190,20 +190,21 @@ def animate(filepath: str, interpolation_factor: int = 5, sigma: float = 0.0, **
         anim.resume()
     start_button.on_clicked(start)
 
-    try:
-        anim.save(filepath + ".mp4", writer='ffmpeg')
-        print(f"Animation saved as {filepath}.mp4")
-    except ImportError:
-        print('FFMPEG not installed, cannot output .mp4...')
-    except Exception as e:
-        print(f'Error saving .mp4: {e}')
+    if kwargs.get('export', False):
+        try:
+            anim.save(filepath + ".mp4", writer='ffmpeg')
+            print(f"Animation saved as {filepath}.mp4")
+        except ImportError:
+            print('FFMPEG not installed, cannot output .mp4...')
+        except Exception as e:
+            print(f'Error saving .mp4: {e}')
 
-    try:
-        anim.save(filepath + ".gif", writer='pillow')
-        print(f"Animation saved as {filepath}.gif")
-    except ImportError:
-        print('Pillow not installed, cannot output .gif...')
-    except Exception as e:
-        print(f'Error saving .gif: {e}')
+        try:
+            anim.save(filepath + ".gif", writer='pillow')
+            print(f"Animation saved as {filepath}.gif")
+        except ImportError:
+            print('Pillow not installed, cannot output .gif...')
+        except Exception as e:
+            print(f'Error saving .gif: {e}')
 
     plt.show()

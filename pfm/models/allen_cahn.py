@@ -20,9 +20,9 @@ class AllenCahn(PhaseFieldModel):
         self._L_phi /= self._inverse_scaling_factor   # Proportional to gamma^-1
         self.k *= self._inverse_scaling_factor ** 5   # Proportional to gamma^5
 
-    def evolve(self, rho):
+    def evolve(self, phi):
         # Need to specify allen cahn below as integrator manages this
-        return self.integrator.evolve(rho, method='ac')
+        return self.integrator.evolve(phi, method='ac')
 
     @partial(jax.jit, static_argnums=(0,))
     def average_free_energy(self, phi: jnp.ndarray) -> jnp.ndarray:

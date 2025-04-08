@@ -1,15 +1,15 @@
-steps = 500000
-print_every = 25000
-print_trajectory_every = 50000
+steps = 500
+print_every = 10
+print_trajectory_every = 2
 N = 100
 dt = 0.01
 dx = 1
 free_energy = "custom"
 integrator = "euler"
-#model = 'AC'
+model = 'AC'
 use_autodiff = false
 L_phi = 1.0
 custom_initial_condition = true
 
 [magnetic_film]
-delta = 4.0
+delta = 1.0

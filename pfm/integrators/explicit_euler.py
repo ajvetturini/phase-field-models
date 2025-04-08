@@ -59,7 +59,8 @@ class ExplicitEuler(Integrator):
         )  # shape: (N_species, Nx, Ny)
 
         lap_phi = self._cell_laplacian(phi)  # shape: (N_species, Nx, Ny)
-        energy_difference = bulk_energy - (self._interface_scalar * self._k_laplacian * lap_phi)
+        interface_energy = self._interface_scalar * self._k_laplacian * lap_phi
+        energy_difference = bulk_energy - interface_energy
 
         return phi - (self._L_phi * energy_difference * self._dt)
 

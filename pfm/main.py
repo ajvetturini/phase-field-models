@@ -228,6 +228,11 @@ class SimulationManager:
             if s1 == 0:
                 add1 = shaped_energy[1][0]
                 add2 = int(shaped_energy[1][-1])
+
+                if add1 == 0:
+                    add1 = 1
+                if add2 == 0:
+                    add2 = 1
             s1 += add1
             s2 += add2
 
