@@ -1,4 +1,4 @@
-steps = 100000
+steps = 1000000
 print_every = 10000
 print_trajectory_every = 10000
 N = 64
@@ -7,7 +7,7 @@ free_energy = "landau"
 integrator = "euler"
 model = 'CH'
 use_autodiff = false
-ch_diff_method = 'central'
+diff_method = 'central'
 interface_scalar = 2.0
 write_path = './jax_results/'
 load_from = 'init_0.dat'

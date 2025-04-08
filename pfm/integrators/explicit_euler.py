@@ -31,16 +31,19 @@ class ExplicitEuler(Integrator):
         Computes:
         rho(t+dt) = rho(t) + M * Δ (∂F/∂ρ) * dt
         """
-        axes_to_sum = tuple(range(1, rho.ndim))
-        rhos = jnp.sum(rho, axis=axes_to_sum)  # Collect total density across all species to potentially use in bulk
+        # Get local rho_species for all bins
+        local_rhos_per_bin = self._get_local_rho_species(rho, self._bin_indices)  # Shape: (N_bins, N_species)
 
         # Compute dF/dρ per species and bin
-        bulk_term = jax.vmap(dEdp, in_axes=(0, 0, None))(
-            jnp.arange(self._model.N_species()), rho, rhos
-        )  # shape: (N_species, Nx, Ny)
+        def bulk_term_for_bin(local_rho):
+            return jax.vmap(dEdp, in_axes=(0, None))(
+                jnp.arange(self._model.N_species()), local_rho
+            )
+        bulk_term_scalar = jax.vmap(bulk_term_for_bin)(local_rhos_per_bin) # vmap over bins
+        bulk_energy = bulk_term_scalar.reshape((self._model.N_species(),) + rho.shape[1:])  # Re-shape back
 
         lap_rho = self._cell_laplacian(rho)  # shape: (N_species, Nx, Ny)
-        chemical_potential = bulk_term - self._interface_scalar * self._k_laplacian * lap_rho
+        chemical_potential = bulk_energy - self._interface_scalar * self._k_laplacian * lap_rho
         lap_d_rho = self._cell_laplacian(chemical_potential)
 
         return rho + self._M * lap_d_rho * self._dt
@@ -56,10 +59,17 @@ class ExplicitEuler(Integrator):
         Here, we assume the free energy model provides the derivative of the bulk term.
         We'll approximate k * laplacian(phi) using the _k_laplacian and our laplacian method.
         """
-        # Compute dF/dphi (chemical potential) per species and bin
-        bulk_energy = jax.vmap(dEdp, in_axes=(0, 0))(
-            jnp.arange(self._model.N_species()), phi
-        )  # shape: (N_species, Nx, Ny)
+        # Get local rho_species for all bins
+        local_rhos_per_bin = self._get_local_rho_species(phi, self._bin_indices)  # Shape: (N_bins, N_species)
+
+        # Compute dF/dρ per species and bin
+        def bulk_term_for_bin(local_rho):
+            return jax.vmap(dEdp, in_axes=(0, None))(
+                jnp.arange(self._model.N_species()), local_rho
+            )
+
+        bulk_term_scalar = jax.vmap(bulk_term_for_bin)(local_rhos_per_bin)  # vmap over bins
+        bulk_energy = bulk_term_scalar.reshape((self._model.N_species(),) + phi.shape[1:])  # Re-shape back
 
         lap_phi = self._cell_laplacian(phi)  # shape: (N_species, Nx, Ny)
         interface_energy = self._interface_scalar * self._k_laplacian * lap_phi

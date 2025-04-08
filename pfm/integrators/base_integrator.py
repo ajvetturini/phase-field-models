@@ -3,6 +3,7 @@ Base class for Integrator modules
 """
 import numpy as np
 from typing import Optional
+import jax
 
 class Integrator:
     def __init__(self, model, config):
@@ -21,6 +22,8 @@ class Integrator:
         shape = tuple([num_species] + [self._N_per_dim] * self._dim)  # we need spatial for each of the num_species!\
         self._rho = np.zeros(shape)
         self._N_bins = np.prod(self._rho.shape[1:])  # Total # of spatial bins (elements)
+        meshes = np.meshgrid(*[np.arange(s) for s in self._rho.shape[1:]], indexing='ij')
+        self._bin_indices = np.stack(meshes, axis=-1).reshape(-1, len( self._rho.shape[1:]))
 
         # Setup scaling factor:
         distance_scaling_factor = config.get('distance_scaling_factor', 1.0)
@@ -38,3 +41,9 @@ class Integrator:
     def evolve(self, rho: Optional):
         raise NotImplementedError("evolve must be implemented by derived classes.")
 
+    @staticmethod
+    def _get_local_rho_species(rho, bin_indices):
+        # Extract the density of all species at a specific spatial bin
+        def get_rho_at_bin(indices):
+            return rho[:, *indices]
+        return jax.vmap(get_rho_at_bin)(bin_indices)

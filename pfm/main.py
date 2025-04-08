@@ -361,10 +361,12 @@ class SimulationManager:
         """
         name = 'init_' + self._system.field_name
         rho_0 = getattr(self._system, name)  # Error will raise if not specified
+        self._print_current_state("init_", 0, rho=rho_0)
         if steps is None:
             steps = self._steps
 
         rho_n = self._evolve_n_steps(rho_0, steps)
+        self._print_current_state("last_", 0, rho=rho_0)
         return rho_n
 
 

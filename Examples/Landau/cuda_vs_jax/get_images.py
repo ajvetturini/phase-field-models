@@ -17,7 +17,7 @@ plot_all_densities(files1, kwargs_list)
 #plot_all_densities(files2, kwargs_list)
 #plot_all_densities(files3, kwargs_list)
 
-animate(r'./jax_results/trajectory_species_0.dat', cmap='plasma', interval=250)
+animate(r'./jax_results/trajectory_0.dat', cmap='plasma', interval=250)
 
 files = [
     r'./jax_results/energy.dat',

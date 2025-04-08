@@ -68,13 +68,13 @@ class SalehWertheim(FreeEnergyModel):
         return f_ref + self.bonding_energy(rho_species_total)
 
     @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy(self, species, rho_species, rhos):
-        rho_species_val = rhos[species]
+    def der_bulk_free_energy(self, species, rho_species):
+        rho_species_val = rho_species[species]
 
         def calculate_derivative(carry):
-            _species, _rhos = carry
-            _rho = jnp.sum(_rhos)
-            df_ref = jnp.log(_rhos[_species]) + 2.0 * self._B2 * _rho + 3.0 * self._B3 * _rho ** 2
+            _species, _rho_species = carry
+            _rho = jnp.sum(_rho_species)
+            df_ref = jnp.log(_rho_species[_species]) + 2.0 * self._B2 * _rho + 3.0 * self._B3 * _rho ** 2
 
             def case_0(r):
                 return self._valence[0] * self._der_contribution(r, 0)
@@ -90,8 +90,8 @@ class SalehWertheim(FreeEnergyModel):
             df_bond = jax.lax.cond(
                 _species == 0, case_0,
                 lambda r2d2: jax.lax.cond(
-                    _species == 1, case_1, case_other, _rhos
-                ), _rhos
+                    _species == 1, case_1, case_other, _rho_species
+                ), _rho_species
             )
             return df_ref + df_bond
 
@@ -101,7 +101,7 @@ class SalehWertheim(FreeEnergyModel):
         result = jax.lax.cond(rho_species_val == 0.0,
                               return_zero,
                               calculate_derivative,
-                              (species, rhos))
+                              (species, rho_species))
         return result
 
     def _der_contribution(self, rhos, species):
