@@ -31,9 +31,12 @@ class ExplicitEuler(Integrator):
         Computes:
         rho(t+dt) = rho(t) + M * Δ (∂F/∂ρ) * dt
         """
+        axes_to_sum = tuple(range(1, rho.ndim))
+        rhos = jnp.sum(rho, axis=axes_to_sum)  # Collect total density across all species to potentially use in bulk
+
         # Compute dF/dρ per species and bin
-        bulk_term = jax.vmap(dEdp, in_axes=(0, 0))(
-            jnp.arange(self._model.N_species()), rho
+        bulk_term = jax.vmap(dEdp, in_axes=(0, 0, None))(
+            jnp.arange(self._model.N_species()), rho, rhos
         )  # shape: (N_species, Nx, Ny)
 
         lap_rho = self._cell_laplacian(rho)  # shape: (N_species, Nx, Ny)

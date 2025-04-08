@@ -22,7 +22,7 @@ class FreeEnergyModel:
     def der_bulk_free_energy_contractive(self, species, rho_species):
         raise NotImplementedError('Not implemented here.')
 
-    def der_bulk_free_energy(self, species, rho_species):
+    def der_bulk_free_energy(self, species, rho_species, rhos):
         # Derivative of bulk free energy
         raise NotImplementedError('Not implemented here.')
 

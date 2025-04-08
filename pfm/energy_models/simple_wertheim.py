@@ -37,6 +37,7 @@ class SimpleWertheim(FreeEnergyModel):
     @partial(jax.jit, static_argnums=(0,))
     def bulk_free_energy(self, rho_species):
         r0 = rho_species[0]  # Only 1 species in SimpleWertheim
+        r0 = jnp.sum(r0)  # Sum up
         rho_sqr = r0 * r0  # Calculate square once
 
         # Reference energy:
@@ -57,11 +58,11 @@ class SimpleWertheim(FreeEnergyModel):
         return f_ref + f_bond
 
     @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy(self, species, rho_species):
+    def der_bulk_free_energy(self, species, rho_species, rhos):
         """ Calculates derivative of bulk free energy w.r.t. density of spatial grid. This is actually vmapped over
         the species.
         """
-        rho = rho_species[species]
+        rho = rhos[species]
         der_f_ref = jnp.where(
             rho < self._regularisation_delta,
             rho / self._regularisation_delta + self._log_delta - 1.0,

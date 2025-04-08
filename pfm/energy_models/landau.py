@@ -25,9 +25,11 @@ class Landau(FreeEnergyModel):
         return -0.5 * self._epsilon * op**2 + 0.25 * op**4
 
     @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy(self, species, rho_species):
+    def der_bulk_free_energy(self, species, rho_species, rhos):
         """ Calculates derivative of bulk free energy w.r.t. density of spatial grid. This is actually vmapped over
         the species, thus we can simply do:
+
+        We must pass in rhos for other energy functions, it isn't used here though.
         """
         return -self._epsilon * rho_species + rho_species**3
 
