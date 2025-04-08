@@ -8,7 +8,6 @@ from pfm.models import CahnHilliard, AllenCahn
 import os
 from functools import partial
 import time
-import sys
 
 
 class SimulationManager:
@@ -166,6 +165,8 @@ class SimulationManager:
             # Print the final state:
             self._print_current_state("last_", self._steps, rho=rho_n)
 
+        self.close()  # Close out write files (although automatic garbage collection should do this)
+
     def _run_jax(self):
         """ uses evolve_n_steps and proper logging in arrays to store information """
         name = 'init_' + self._system.field_name
@@ -211,9 +212,7 @@ class SimulationManager:
 
         energy_log = [self._log_energy(0, rho_0)]
         traj_log = [np.array(rho_0, dtype=np.float32)]
-        start = time.time()
-        time_points = [start]  # Keep track of runtime
-
+        steps = [0]
         current_step = 0
         for i in range(num_traj_log_points):
             # Number of steps to evolve until the next trajectory log
@@ -237,7 +236,7 @@ class SimulationManager:
             # Store the trajectory point
             traj_log.append(np.array(rho_n, dtype=np.float32))
             current_step += n_steps
-            time_points.append(current_step)
+            steps.append(current_step)
 
             if current_step >= self._steps:
                 break
@@ -248,7 +247,7 @@ class SimulationManager:
         self._print_current_state("last_", self._steps, rho=rho_n)
 
         print('Beginning write out of final files, this may take a moment...')
-        self._write_output_jax_arrays(traj_log, energy_log, np.array(time_points), dim_str, rho_n)
+        self._write_output_jax_arrays(traj_log, energy_log, steps, dim_str, rho_n)
 
     def run(self, override_use_jax: bool = False):
         """ Top level method to run a simulation """
@@ -261,10 +260,13 @@ class SimulationManager:
             elif d.device_kind.lower() not in ['gpu', 'tpu', 'cpu']:
                 raise Exception(f'Unknown hardware device: {d.device_kind}')
 
+        t = time.time()
         if accelerator_found:
             self._run_jax()
         else:
             self._run_cpu()  # Still leverages JIT / JAX, but write out happens a bit differently
+        end = time.time()
+        return end - t
 
     def _write_output_jax_arrays(self, traj_log, energy_log, steps, dim_string, final_rho):
         """ Writes a simple ASCII file of the trajectory and energies tracked during the simulation """

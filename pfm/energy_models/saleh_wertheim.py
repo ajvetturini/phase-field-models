@@ -31,3 +31,25 @@ class SalehWertheim(FreeEnergyModel):
         # Saleh uses 3 species, please see GenericWertheim for a more generalized implementation
         return 3
 
+    def bulk_free_energy(self, rho_species):
+        pass
+
+    @partial(jax.jit, static_argnums=(0,))
+    def der_bulk_free_energy(self, species, rho_species):
+        """ Calculates derivative of bulk free energy w.r.t. density of spatial grid. This is actually vmapped over
+        the species, thus we can simply do:
+        """
+        pass
+
+    def _elementwise_bulk_free_energy(self, rho_species):
+        """ Calculates the bulk free energy for each point in the grid. """
+        pass
+
+    def _total_bulk_free_energy(self, rho_species):
+        return jnp.sum(self._elementwise_bulk_free_energy(rho_species))
+
+    @partial(jax.jit, static_argnums=(0,))
+    def der_bulk_free_energy_autodiff(self, species, rho_species):
+        """ Uses autodiff to evaluate the bulk_free_energy term """
+        elementwise_grad_fn = jax.grad(self._total_bulk_free_energy)(rho_species)
+        return elementwise_grad_fn

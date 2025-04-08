@@ -27,8 +27,7 @@ class SimpleWertheim(FreeEnergyModel):
 
 
     def N_species(self):
-        # For a simple Landau model, we assume a single component, N, that can have varying concentration.
-        # If you're modeling a mixture with multiple conserved quantities, you'll need to adjust this
+        # For a simple Wertheim implementation we will consider just 1 species
         return 1
 
     def _X(self, rho):

@@ -62,7 +62,7 @@ def custom_initial_condition(init_phi):
 c = toml.load('input_magnetic_film.toml')
 manager = SimulationManager(c, custom_energy=MagneticFilm, custom_initial_condition=custom_initial_condition)
 start = time.time()
-manager.run_jax()
+manager.run()
 end = time.time() - start
 
 minutes = int(end // 60)
