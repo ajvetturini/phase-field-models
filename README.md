@@ -6,8 +6,8 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
 # Implementation Details
 
 - The code here supports 1D and 2D simulations and take a TOML-file based input detailing the simulation parameters.
-- Free energy models supported: ``Landau`` | 
-- Numerical Integrators supported: ``Explicit Euler`` |
+- Free energy models implemented: ``Landau`` | 
+- Numerical Integrators implemented: ``Explicit Euler`` |
 - Automatic Differentiation is supported for the free energy models. However, you must be careful about dimensionality and size. If N is large with many species, you're array will grow very large and memory requirements will become a concern. 
   - If you are developing your own energy model for a process and want to differentiate through the updates, you will also need to determine if you need to use jax.jacobian based on your free energy model.
 - Currently, all grids are handled with constant size $N$ and grid-cell size of $dx$
