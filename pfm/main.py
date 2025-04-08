@@ -2,7 +2,7 @@ import numpy as np
 import toml
 import jax
 import jax.numpy as jnp
-from pfm.energy_models import Landau, MagneticFilm
+from pfm.energy_models import Landau
 from pfm.integrators import ExplicitEuler
 from pfm.models import CahnHilliard, AllenCahn
 import os
@@ -54,8 +54,6 @@ class SimulationManager:
     def _read_in_energy_model(config, free_energy, CustomEnergy):
         if free_energy.lower() == 'landau':
             return Landau(config)
-        elif free_energy.lower() == 'magnetic_film':
-            return MagneticFilm(config)
         elif free_energy.lower() == 'custom':
             return CustomEnergy(config)
 

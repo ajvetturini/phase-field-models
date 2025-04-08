@@ -24,9 +24,9 @@ class MagneticFilm(FreeEnergyModel):
         """ Derivative of the double-well bulk free energy. """
         return 4 * self._delta * (jnp.pow(phi, 3) - phi)
 
-    def _elementwise_bulk_free_energy(self, rho_species):
+    def _elementwise_bulk_free_energy(self, phi_species):
         """ Calculates the double-well bulk free energy for each point in the grid. """
-        return self._delta * (jnp.pow(rho_species, 4) - 2 * (jnp.pow(c, 2)))
+        return self._delta * (jnp.pow(phi_species, 4) - 2 * (jnp.pow(phi_species, 2)))
 
     def _total_bulk_free_energy(self, rho_species):
         return jnp.sum(self._elementwise_bulk_free_energy(rho_species))

@@ -1,0 +1,15 @@
+from pfm import SimulationManager
+import toml
+import time
+
+c = toml.load(r'input_landau.toml')
+manager = SimulationManager(c)
+start = time.time()
+manager.run_jax()
+#manager.run()
+end = time.time() - start
+
+minutes = int(end // 60)
+seconds = int(end % 60)
+
+print(f'JAX-version of CH finished in: {minutes} min and {seconds} secs')

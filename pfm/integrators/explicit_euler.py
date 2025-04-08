@@ -48,10 +48,10 @@ class ExplicitEuler(Integrator):
         Explicit Euler step for Allen-Cahn
 
         Computes:
-        phi(t+dt) = phi(t) - gamma * (dF/dphi) * dt
-        where dF/dphi = d(bulk_free_energy)/d(phi) - kappa * laplacian(phi)
+        phi(t+dt) = phi(t) - l_phi * (dF/dphi) * dt
+        where dF/dphi = d(bulk_free_energy)/d(phi) - k * laplacian(phi)
         Here, we assume the free energy model provides the derivative of the bulk term.
-        We'll approximate kappa * laplacian(phi) using the _k_laplacian and our laplacian method.
+        We'll approximate k * laplacian(phi) using the _k_laplacian and our laplacian method.
         """
         # Compute dF/dphi (chemical potential) per species and bin
         bulk_energy = jax.vmap(dEdp, in_axes=(0, 0))(
