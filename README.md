@@ -14,7 +14,7 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
   - If you are developing your own energy model for a process and want to differentiate through the updates, you will also need to determine if you need to use jax.jacobian based on your free energy model.
 - Currently, all grids are handled with constant size $N$ and grid-cell size of $dx$
 - Be careful with how the density field is handled (i.e., it's shape)!
-- Free energies are handled as *dimensionless*, and the equation constants (e.g., M / mobility constant in Cahn-Hilliard) is actually $M'=K_bTM$ which is treated as 1 $(nm s)^{-1}$
+- Free energies are handled as *dimensionless*, and the equation constants (e.g., M / mobility constant in Cahn-Hilliard) is actually $M'=K_bTM$ which is treated as 1 (nm s)$^{-1}$
 - The input files in the Examples directory will show how scaling constants (for the interface / bulk energy values in the Allen-Cahn or Cahn-Hilliard) can be incorporated through the input config TOML
 
 
