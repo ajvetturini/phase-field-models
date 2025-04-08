@@ -65,7 +65,9 @@ class ExplicitEuler(Integrator):
         return phi - (self._L_phi * energy_difference * self._dt)
 
     def evolve(self, rho, method='ch'):
-        """ The state variable (rho, phi) is passed in and updated via Explicit Euler """
+        """ The order parameter (rho, phi) is passed in and updated. We need to specify which derivative function
+         to use if autodiff is enabled.
+         """
         # Gather derivative of bulk free energy functional:
         dEdp = self._model.der_bulk_free_energy_autodiff if self._use_autodiff else self._model.der_bulk_free_energy
 
@@ -105,9 +107,20 @@ class ExplicitEuler(Integrator):
             # Assume box-like system (dx = dy = dz)
             return (up + down + left + right - 4 * center) / (self._dx ** 2)
 
+        elif self._dim == 3:
+            up = jnp.roll(phi, shift=+1, axis=1)
+            down = jnp.roll(phi, shift=-1, axis=1)
+            left = jnp.roll(phi, shift=+1, axis=2)
+            right = jnp.roll(phi, shift=-1, axis=2)
+            front = jnp.roll(phi, shift=+1, axis=3)
+            back = jnp.roll(phi, shift=-1, axis=3)
+            center = phi
+
+            # Assume box-like system (dx = dy = dz)
+            return (up + down + left + right + front + back - 6 * center) / (self._dx ** 3)
 
         else:
-            raise NotImplementedError("Only 1D and 2D Laplacians implemented.")
+            raise NotImplementedError("Only supported up until 3D")
 
 
 

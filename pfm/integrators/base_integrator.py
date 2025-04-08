@@ -14,8 +14,8 @@ class Integrator:
         self._L_phi = config.get('L_phi', 1.0)
         self._dx = config.get('dx', 1.0)
         self._dim = config.get('dim', 2)
-        if self._dim <= 0 or self._dim > 2:
-            raise Exception('Unable to proceed, currently only support for 1D and 2D is implemented')
+        if self._dim <= 0 or self._dim > 3:
+            raise Exception('Unable to proceed, package only supports periodic 1D - 3D')
 
         num_species = self._model.N_species()
         shape = tuple([num_species] + [self._N_per_dim] * self._dim)  # we need spatial for each of the num_species!\
@@ -35,11 +35,6 @@ class Integrator:
         self._use_autodiff = config.get('use_autodiff', False)  # Use manual derivative by default
         self._interface_scalar = config.get('interface_scalar', 1.)  # Scales interface energy, defaults to 1
 
-    def set_initial_rho(self, r):
-        self._rho[:] = r[:]
-
     def evolve(self, rho: Optional):
         raise NotImplementedError("evolve must be implemented by derived classes.")
 
-    def rho(self):
-        return self._rho

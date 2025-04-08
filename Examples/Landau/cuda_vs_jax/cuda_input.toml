@@ -3,9 +3,9 @@ print_every = 1000
 print_trajectory_every = 200000
 N = 64
 dt = 0.001
-initial_density = 0.01
 free_energy = "landau"
 use_CUDA = true
+load_from = 'init_0.dat'
 
 [landau]
 epsilon = 0.9

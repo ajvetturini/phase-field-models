@@ -2,11 +2,10 @@ from pfm import SimulationManager
 import toml
 import time
 
-c = toml.load(r'input_landau.toml')
+c = toml.load(r'input_wertheim_simple.toml')
 manager = SimulationManager(c)
 start = time.time()
-manager.run_jax()
-#manager.run()
+manager.run()
 end = time.time() - start
 
 minutes = int(end // 60)

@@ -14,12 +14,15 @@ class Landau(FreeEnergyModel):
         if self._inverse_scaling_factor != 1.0:
             raise Exception('Landau free energy model does not support distance_scaling_factors from 1.0')
 
-        self._autograd_fn = jax.jit(jax.grad(self._elementwise_bulk_free_energy))
 
     def N_species(self):
         # For a simple Landau model, we assume a single component, N, that can have varying concentration.
         # If you're modeling a mixture with multiple conserved quantities, you'll need to adjust this
         return 1
+
+    def bulk_free_energy(self, rho_species):
+        op = rho_species[0]
+        return -0.5 * self._epsilon * op**2 + 0.25 * op**4
 
     @partial(jax.jit, static_argnums=(0,))
     def der_bulk_free_energy(self, species, rho_species):
@@ -41,9 +44,7 @@ class Landau(FreeEnergyModel):
         elementwise_grad_fn = jax.grad(self._total_bulk_free_energy)(rho_species)
         return elementwise_grad_fn
 
-    def bulk_free_energy(self, rho_species):
-        op = rho_species[0]
-        return -0.5 * self._epsilon * op**2 + 0.25 * op**4
+
 
 
 

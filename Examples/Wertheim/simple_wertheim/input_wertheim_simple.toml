@@ -7,6 +7,7 @@ initial_density = 5e-5
 free_energy = "simple_wertheim"
 dx = 10
 k = 1e6
+write_path = './jax/'
 
 [wertheim]
 valence = 4

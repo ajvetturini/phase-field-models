@@ -1,0 +1,7 @@
+TODO Implementation List
+
+-> Remaining energy models
+-> Keep testing the run_jax function, it kinda sucks?
+-> Results comparison w/ CUDA-based implementation!
+-> Finish 3D support + analysis files
+-> Try and do a meta-optimization of beta-K in the tension simulations???

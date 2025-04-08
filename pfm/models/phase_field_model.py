@@ -21,8 +21,8 @@ class PhaseFieldModel:
         self.free_energy_model = free_energy_model
         self.field_name = field_name  # Name of the order parameter (e.g., rho or phi)
 
-        if self.dim <= 0 or self.dim > 2:
-            raise Exception('Unable to proceed, currently only support for 1D and 2D is implemented')
+        if self.dim <= 0 or self.dim > 3:
+            raise Exception('Unable to proceed, currently only support for 1D, 2D, 3D is implemented')
 
         if jnp.mod(self.N, 2) != 0.:
             raise ValueError("N should be a power of 2")
@@ -32,7 +32,7 @@ class PhaseFieldModel:
         initial_field = np.zeros(shape)
 
         # Setup RNG key for initialization
-        prng = jax.random.PRNGKey(rng)   # rng is just a seed in this case
+        prng = jax.random.PRNGKey(int(rng))   # rng is just a seed in this case
 
         # Load in the initial state which we handle here using either a specified state (load_from)
         # or from a procedure sefined in https://github.com/lorenzo-rovigatti/cahn-hilliard
@@ -40,16 +40,48 @@ class PhaseFieldModel:
         if "load_from" in config:
             filename = config.get('load_from')
             with open(filename, 'r') as load_from:
-                for s in range(num_species):
+                first_line = load_from.readline().strip()  # Skip the first line which is a commented line (#)
+                if first_line.startswith('#'):
+                    pass  # Skip the commented line
+                else:
+                    # If the first line is not a comment, process it
+                    # Assuming the first line contains data for the first species (s=0)
                     if self.dim == 1:
-                        for idx in range(self.N):
-                            initial_field[s, idx] = float(load_from.readline().strip())
+                        values = first_line.split()
+                        for idx, val_str in enumerate(values):
+                            if idx < self.N:
+                                initial_field[0, idx] = float(val_str)
                     elif self.dim == 2:
+                        values = first_line.split()
+                        # Assuming the first line contains N*self.dim values for the first species
                         for i in range(self.N):
-                            for j in range(self.N):
-                                initial_field[s, i, j] = float(load_from.readline().strip())
-                    else:
-                        raise ValueError(f"Unsupported number of dimensions {self.dim}")
+                            start_index = i * self.dim
+                            end_index = (i + 1) * self.dim
+                            if end_index <= len(values):
+                                initial_field[0, i, :] = [float(v) for v in values[start_index:end_index]]
+
+                    elif self.dim == 3:
+                        raise Exception('3D not fully supported yet.')
+
+                for s in range(num_species):
+                    for ct, line in enumerate(load_from):
+                        line = line.strip()
+                        if line:  # Ensure the line is not empty
+                            values = line.split()
+                            if self.dim == 1:
+                                for idx, val_str in enumerate(values):
+                                    if idx < self.N:
+                                        initial_field[s, idx] = float(val_str)
+                                break  # Move to the next species after reading enough values
+                            elif self.dim == 2:
+                                # Assuming each line contains N * self.dim values for one species
+                                if len(values) == self.N:
+                                    initial_field[s, ct, :] = [float(v) for v in values]
+                                else:
+                                    raise Exception('Invalid load_from file')
+
+                            elif self.dim == 3:
+                                raise Exception('Unable to proceed, 3D not fully implemented yet.')
         elif "initial_density" in config:
             initial_density = config.get('initial_density')
             densities = np.array([float(initial_density)] * num_species)
@@ -84,7 +116,22 @@ class PhaseFieldModel:
                 initial_field = densities[:, None, None] * (1.0 + 2.0 * modulation[None, :, :] * random_factor)
 
             elif self.dim == 3:
-                raise NotImplementedError("3D initialization not implemented.")
+                x, y, z = jnp.meshgrid(
+                    jnp.arange(self.N), jnp.arange(self.N), jnp.arange(self.N)
+                )
+                r = jnp.sqrt(x ** 2 + y ** 2 + z ** 2)
+                modulation = initial_A * jnp.cos(k * r)
+                prng, subkey = jax.random.split(prng)
+                noise = jax.random.uniform(subkey, shape=(num_species, self.N, self.N, self.N))
+
+                if initial_N_peaks == 0:
+                    random_factor = noise - 0.5
+                else:
+                    random_factor = 1.0 + 0.02 * (noise - 0.5)
+
+                initial_field = densities[:, None, None, None] * (
+                        1.0 + 2.0 * modulation[None, :, :, :] * random_factor
+                )
 
         elif "custom_initial_condition" in config:  # User must specify in the TOML custom_initial_condition = true
             fn = kwargs.get('custom_fn')
