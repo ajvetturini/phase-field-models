@@ -170,36 +170,10 @@ class SimulationManager:
     def _run_jax(self):
         """ uses evolve_n_steps and proper logging in arrays to store information """
         name = 'init_' + self._system.field_name
-        rho_0 = getattr(self._system, name)  # Error will raise if not specified
+        rho_n = getattr(self._system, name)  # Error will raise if not specified
+        self._print_current_state("init_", 0, rho=rho_n)  # Print init state
 
-        assert self._print_trajectory_every > self._print_mass_every, 'ERROR: Print trajectory should be > print_energy'
-
-        # Determine the number of logging steps for trajectory and energy
-        num_traj_log_points = int(max(1, self._steps // self._print_trajectory_every))
-        num_energy_log_points = int(max(1, self._steps // self._print_mass_every))
-
-        max_log_points = 250
-        if num_traj_log_points > max_log_points:
-            print(f'print_trajectory_every set too high for JAX. Limiting trajectory logs to {max_log_points} states.')
-            num_traj_log_points = max_log_points
-            self._print_trajectory_every = max(1, self._steps // num_traj_log_points)
-
-        if num_energy_log_points > max_log_points:
-            print(f'print_mass_every set too high for JAX. Limiting energy logs to {max_log_points} evaluations.')
-            num_energy_log_points = max_log_points
-            self._print_mass_every = max(1, self._steps // num_energy_log_points)
-
-        # init rho and logging arrays
-        self._print_current_state("init_", 0, rho=rho_0)  # Print init state
-        rho_n = rho_0  # init
-        steps_per_traj_log = self._print_trajectory_every
-        energy_logs_per_traj = steps_per_traj_log // self._print_mass_every
-        if energy_logs_per_traj == 0 and self._print_trajectory_every >= self._print_mass_every:
-            energy_logs_per_traj = 1
-        elif self._print_mass_every > self._print_trajectory_every:
-            raise ValueError(
-                "print_mass_every should be less than or equal to print_trajectory_every for proper logging.")
-
+        # Simulation dimension string:
         N, Ns, dim = self._system.N, self._free_energy_model.N_species(), self._system.dim
         if dim == 1:
             dim_str = f'{N}'
@@ -210,36 +184,33 @@ class SimulationManager:
         else:
             raise Exception('Invalid value of dimension')
 
-        energy_log = [self._log_energy(0, rho_0)]
-        traj_log = [np.array(rho_0, dtype=np.float32)]
+        # Setup logs:
+        energy_log = [self._log_energy(0, rho_n)]
+        traj_log = [np.array(rho_n, dtype=np.float32)]
         steps = [0]
+
+        # Logging intervals:
+        log_mass_every = self._print_mass_every
+        log_traj_every = self._print_trajectory_every
+        log_every = np.gcd(log_mass_every, log_traj_every)
+
+        # Begin simulation
         current_step = 0
-        for i in range(num_traj_log_points):
-            # Number of steps to evolve until the next trajectory log
-            n_steps = int(min(steps_per_traj_log, self._steps - current_step))
+        while current_step < self._steps:
+            # Determine how many steps to take in the next block
+            remaining_steps = self._steps - current_step
+            num_steps_to_run = min(log_every, remaining_steps)
 
-            # Pre-allocate space for energy logs within this trajectory segment
-            num_energy_logs = int(
-                min(
-                    energy_logs_per_traj,
-                    (self._steps - current_step) // self._print_mass_every if self._print_mass_every > 0 else 1
-                )
-            )
-            energy_at_segment = jnp.zeros((num_energy_logs, 4), dtype=jnp.float32) if (
-                    num_energy_logs > 0) else jnp.zeros((0, 4), dtype=jnp.float32)
+            # Advance the simulation
+            rho_n = self._evolve_n_steps(rho_n, num_steps_to_run)
+            current_step += num_steps_to_run
 
-            # Evolve the system and collect energy data
-            rho_n, e_n = self._evolve_n_steps(rho_n, n_steps, energy_at_segment, self._print_mass_every)
-            if num_energy_logs > 0:
-                energy_log.extend(np.array(e_n, dtype=np.float32))
-
-            # Store the trajectory point
-            traj_log.append(np.array(rho_n, dtype=np.float32))
-            current_step += n_steps
-            steps.append(current_step)
-
-            if current_step >= self._steps:
-                break
+            # Conditional logging
+            if current_step % log_mass_every == 0:
+                energy_log.append(self._log_energy(current_step, rho_n))
+            if current_step % log_traj_every == 0:
+                traj_log.append(np.array(rho_n, dtype=np.float32))
+                steps.append(current_step)
 
         # Print final state and logs
         energy_log = np.array(energy_log)
@@ -254,23 +225,25 @@ class SimulationManager:
         devices = jax.devices()
         accelerator_found = False
         for d in devices:
-            if d.device_kind.lower() == 'gpu' or d.device_kind.lower() == 'tpu':
+            if d.platform.lower() == 'gpu' or d.platform.lower() == 'tpu':
                 accelerator_found = True
+                print('Accelerator found')
                 break
-            elif d.device_kind.lower() not in ['gpu', 'tpu', 'cpu']:
-                raise Exception(f'Unknown hardware device: {d.device_kind}')
+            elif d.platform.lower() not in ['gpu', 'tpu', 'cpu']:
+                raise Exception(f'Unknown hardware device: {d.platform}')
 
         t = time.time()
-        if accelerator_found:
+        if accelerator_found or override_use_jax:
             self._run_jax()
         else:
-            self._run_cpu()  # Still leverages JIT / JAX, but write out happens a bit differently
+            # This still leverages JIT / JAX w/ performance similar to C++, but write out happens a bit more smoothly
+            self._run_cpu()
         end = time.time()
         return end - t
 
     def _write_output_jax_arrays(self, traj_log, energy_log, steps, dim_string, final_rho):
         """ Writes a simple ASCII file of the trajectory and energies tracked during the simulation """
-        shaped_energy = energy_log.reshape((-1, energy_log.shape[2]))
+        shaped_energy = energy_log
         write_list = []
         s1, s2 = 0, 0
         for i in shaped_energy:
@@ -310,18 +283,21 @@ class SimulationManager:
                             file.write(row + '\n')
 
                 # Then write the final_rho value:
-                header_str = f'# step = {steps[j + 1]}, species = {i}, size = ' + dim_string + '\n'
-                file.write(header_str)
-                cur_frame = final_rho[i]
+                try:
+                    header_str = f'# step = {steps[j + 1]}, species = {i}, size = ' + dim_string + '\n'
+                    file.write(header_str)
+                    cur_frame = final_rho[i]
 
-                # Write the current 2D frame and a new line:
-                if self._integrator._dim == 1:
-                    row_as_string = ' '.join(map(str, cur_frame))  # 1D just writes frame data
-                    file.write(row_as_string + '\n')
-                elif self._integrator._dim == 2:
-                    row_strings = [' '.join(map(str, row)) for row in cur_frame]
-                    for row in row_strings:
-                        file.write(row + '\n')
+                    # Write the current 2D frame and a new line:
+                    if self._integrator._dim == 1:
+                        row_as_string = ' '.join(map(str, cur_frame))  # 1D just writes frame data
+                        file.write(row_as_string + '\n')
+                    elif self._integrator._dim == 2:
+                        row_strings = [' '.join(map(str, row)) for row in cur_frame]
+                        for row in row_strings:
+                            file.write(row + '\n')
+                except IndexError:  # Need to clean up logging still
+                    pass
                 file.write('\n')
 
     @partial(jax.jit, static_argnums=(0,))
@@ -335,26 +311,6 @@ class SimulationManager:
         ], dtype=jnp.float32)
         return energy_values
 
-    @partial(jax.jit, static_argnums=(0, 2))
-    def _evolve_n_steps(self, rho, nsteps, energy_at_step, energy_every):
-        """ Steps the integrator some N number of timesteps using a jax.lax.scan """
-
-        def _evolve(carry, count):
-            r, el, ec = carry
-            r = self._system.evolve(r)  # Evolve state first
-            log_energy_cond = (jnp.mod(count, energy_every) == 0)
-
-            (el, ec) = jax.lax.cond(
-                log_energy_cond,
-                lambda: (el.at[ec].set(self._log_energy(count, r)), ec + 1),  # Branch that logs
-                lambda: (el, ec)  # Branch that does nothing
-            )
-
-            return (r, el, ec), None
-
-        (r_n, el, ec), _ = jax.lax.scan(_evolve, (rho, energy_at_step, 0), jnp.arange(nsteps), nsteps)
-        return r_n, el
-
     def run_system_no_logging(self, steps: int = None):
         """ This is for simple performance test-bedding. This can also be used to rapidly iterate an initial state to
         a specific point from which you may want to begin logging.
@@ -365,8 +321,22 @@ class SimulationManager:
         if steps is None:
             steps = self._steps
 
-        rho_n = self._evolve_n_steps(rho_0, steps)
-        self._print_current_state("last_", 0, rho=rho_0)
+        def _evolve(_r, _):
+            _r = self._system.evolve(_r)  # Evolve state first
+            return _r, None
+
+        rho_n, _ = jax.lax.scan(_evolve, rho_0, jnp.arange(steps))
+        self._print_current_state("last_", 0, rho=rho_n)
+        return rho_n
+
+    @partial(jax.jit, static_argnums=(0, 2))
+    def _evolve_n_steps(self, rho_0, steps):
+
+        def _evolve(_r, _):
+            _r = self._system.evolve(_r)  # Evolve state first
+            return _r, None
+
+        rho_n, _ = jax.lax.scan(_evolve, rho_0, jnp.arange(steps))
         return rho_n
 
 

@@ -58,10 +58,10 @@ pip install -e .
 4) Install required dependencies
 ```
 # For CUDA-enabled systems:
-pip install "jax[cuda]" matplotlib toml
+pip install "jax[cuda]" matplotlib toml tqdm
 
 # For CPU-only or non-Linux systems (e.g., Windows/Mac):
-pip install jax matplotlib toml
+pip install jax matplotlib toml tqdm
 ```
 
 # Got questions?
