@@ -59,6 +59,9 @@ def custom_initial_condition(init_phi):
 # Overall, this is a SHORT simulation! We are looking at the early separation (first few hundred timesteps)
 # The system achieves a minimum relatively quickly (within few thousand steps), so if you run a system
 # too long, the results file may not tell an accurate story.
+
+# ALSO: If you specify a custom function using jax, you MUST specify the CUDA device here prior to importing jax
+#       See how main.py is structured!
 c = toml.load('input_magnetic_film.toml')
 manager = SimulationManager(c, custom_energy=MagneticFilm, custom_initial_condition=custom_initial_condition)
 start = time.time()
