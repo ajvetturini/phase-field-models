@@ -1,8 +1,10 @@
 TODO Implementation List
 
+-> Verify 1D also
 -> Remaining energy models
 -> Autodiff implementations
 -> Results comparison w/ CUDA-based implementation!
+     -> Time CUDA then use CUDA input to JAX since their "read_from" does not work
 -> Clean up codebase / comments
 -> Finish 3D support + analysis files + clean up analysis creation a bit? Like make formatting a bit easier? idk
 -> Try and do a meta-optimization of beta-K in the tension simulations
