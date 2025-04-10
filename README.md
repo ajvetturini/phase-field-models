@@ -18,7 +18,7 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
 - Be careful with how the density field is handled (i.e., it's shape)!
 - Free energies are handled as *dimensionless*, and the equation constants (e.g., M / mobility constant in Cahn-Hilliard) is actually $M'=K_bTM$ which is treated as 1 (nm s $)^{-1}$
 - The input files in the Examples directory will show how scaling constants (for the interface / bulk energy values in the Allen-Cahn or Cahn-Hilliard) can be incorporated through the input config TOML to better fit this package to your specific needs
-- The [MagneticFilm.py](https://github.com/ajvetturini/phase-field-models/blob/main/Examples/MagneticFilm/run.py) example shows how you can incorporate your own energy model to be solved via Allen-Cahn or Cahn-Hilliard 
+- The [MagneticFilm.py](https://github.com/ajvetturini/phase-field-models/blob/main/Examples/MagneticFilm/run.py) example shows how you can incorporate your own energy model to be solved via Allen-Cahn or Cahn-Hilliard as well as specifying unique initialization conditions outside of the default method using the ``initial_density`` config parameter.
 - If your system has multiple GPUs, you can run the following command in terminal to specify a device: ``` CUDA_VISIBLE_DEVICES="DEVICE_NUMBER" python run.py ``` where the run.py script will read in a TOML and start a run (see [this example](https://github.com/ajvetturini/phase-field-models/blob/main/Examples/Landau/cuda_vs_jax/run.py))
 
 # Future Features
