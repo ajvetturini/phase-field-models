@@ -19,14 +19,13 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
 - Free energies are handled as *dimensionless*, and the equation constants (e.g., M / mobility constant in Cahn-Hilliard) is actually $M'=K_bTM$ which is treated as 1 (nm s $)^{-1}$
 - The input files in the Examples directory will show how scaling constants (for the interface / bulk energy values in the Allen-Cahn or Cahn-Hilliard) can be incorporated through the input config TOML to better fit this package to your specific needs
 - The [MagneticFilm.py](https://github.com/ajvetturini/phase-field-models/blob/main/Examples/MagneticFilm/run.py) example shows how you can incorporate your own energy model to be solved via Allen-Cahn or Cahn-Hilliard 
-- To specify a GPU to use, you can simple call ``` CUDA_VISIBLE_DEVICES="DEVICE_NUMBER" python run.py ```
-
+- If your system has multiple GPUs, you can run the following command in terminal to specify a device: ``` CUDA_VISIBLE_DEVICES="DEVICE_NUMBER" python run.py ``` where the run.py script will read in a TOML and start a run (see [this example](https://github.com/ajvetturini/phase-field-models/blob/main/Examples/Landau/cuda_vs_jax/run.py))
 
 # Future Features
 Below is a list of features that would be nice to be implemented. Please let me know (see end of README / open a PR) if you want to see any other features added!
 
 - simple_wertheim, and saleh free energy functions
-- 3D support
+- 3D support with Shard Mapping
 - Analysis toolkit features
 - Different numerical integrators
 
@@ -56,7 +55,7 @@ cd phase-field-models
 ```
 pip install -e .
 ```
-4) Install required dependencies
+4) Install required dependencies (this is usually done automatically during step 3, but if you want to install JAX for GPU, then follow the first line below)
 ```
 # For CUDA-enabled systems:
 pip install "jax[cuda]" matplotlib toml tqdm
