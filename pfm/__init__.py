@@ -1,2 +1,2 @@
-from .main import create_simulation
+from .main import run
 from .manager import SimulationManager
