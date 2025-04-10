@@ -11,6 +11,7 @@ diff_method = 'central'
 interface_scalar = 2.0
 write_path = './jax_results/'
 initial_density = 0.01
+gpu_device_number = 3
 
 [landau]
 epsilon = 0.9

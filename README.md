@@ -19,6 +19,7 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
 - Free energies are handled as *dimensionless*, and the equation constants (e.g., M / mobility constant in Cahn-Hilliard) is actually $M'=K_bTM$ which is treated as 1 (nm s $)^{-1}$
 - The input files in the Examples directory will show how scaling constants (for the interface / bulk energy values in the Allen-Cahn or Cahn-Hilliard) can be incorporated through the input config TOML to better fit this package to your specific needs
 - The [MagneticFilm.py](https://github.com/ajvetturini/phase-field-models/blob/main/Examples/MagneticFilm/run.py) example shows how you can incorporate your own energy model to be solved via Allen-Cahn or Cahn-Hilliard 
+- To specify a GPU to use, you can simple call ``` CUDA_VISIBLE_DEVICES="DEVICE_NUMBER" python run.py ```
 
 
 # Future Features
