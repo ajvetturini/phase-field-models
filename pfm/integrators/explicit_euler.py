@@ -32,7 +32,7 @@ class ExplicitEuler(Integrator):
         rho(t+dt) = rho(t) + M * Δ (∂F/∂ρ) * dt
         """
         # Get local rho_species for all bins
-        local_rhos_per_bin = self._get_local_rho_species(rho, self._bin_indices)  # Shape: (N_bins, N_species)
+        local_rhos_per_bin = self.get_local_rho_species(rho, self.bin_indices)  # Shape: (N_bins, N_species)
 
         # Compute dF/dρ per species and bin
         def bulk_term_for_bin(local_rho):
@@ -60,7 +60,7 @@ class ExplicitEuler(Integrator):
         We'll approximate k * laplacian(phi) using the _k_laplacian and our laplacian method.
         """
         # Get local rho_species for all bins
-        local_rhos_per_bin = self._get_local_rho_species(phi, self._bin_indices)  # Shape: (N_bins, N_species)
+        local_rhos_per_bin = self.get_local_rho_species(phi, self.bin_indices)  # Shape: (N_bins, N_species)
 
         # Compute dF/dρ per species and bin
         def bulk_term_for_bin(local_rho):

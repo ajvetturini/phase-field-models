@@ -23,7 +23,7 @@ class Integrator:
         self._rho = np.zeros(shape)
         self._N_bins = np.prod(self._rho.shape[1:])  # Total # of spatial bins (elements)
         meshes = np.meshgrid(*[np.arange(s) for s in self._rho.shape[1:]], indexing='ij')
-        self._bin_indices = np.stack(meshes, axis=-1).reshape(-1, len( self._rho.shape[1:]))
+        self.bin_indices = np.stack(meshes, axis=-1).reshape(-1, len(self._rho.shape[1:]))
 
         # Setup scaling factor:
         distance_scaling_factor = config.get('distance_scaling_factor', 1.0)
@@ -42,7 +42,7 @@ class Integrator:
         raise NotImplementedError("evolve must be implemented by derived classes.")
 
     @staticmethod
-    def _get_local_rho_species(rho, bin_indices):
+    def get_local_rho_species(rho, bin_indices):
         # Extract the density of all species at a specific spatial bin
         def get_rho_at_bin(indices):
             return rho[:, *indices]
