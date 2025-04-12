@@ -18,6 +18,8 @@ class Integrator:
         if self._dim <= 0 or self._dim > 3:
             raise Exception('Unable to proceed, package only supports periodic 1D - 3D')
 
+        # Ensure square grid:
+        assert self._N_per_dim > 0 and (self._N_per_dim & (self._N_per_dim - 1)) == 0, "N_per_dim must be a power of 2"
         num_species = self._model.N_species()
         shape = tuple([num_species] + [self._N_per_dim] * self._dim)  # we need spatial for each of the num_species!\
         self._rho = np.zeros(shape)

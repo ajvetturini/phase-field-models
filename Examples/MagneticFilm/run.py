@@ -62,7 +62,7 @@ def custom_initial_condition(init_phi):
 
 # ALSO: If you specify a custom function using jax, you MUST specify the CUDA device here prior to importing jax
 #       See how main.py is structured!
-c = toml.load('input_magnetic_film.toml')
+c = toml.load('magnetic_film_ch.toml')
 manager = SimulationManager(c, custom_energy=MagneticFilm, custom_initial_condition=custom_initial_condition)
 start = time.time()
 manager.run()

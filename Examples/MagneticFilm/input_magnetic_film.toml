@@ -5,6 +5,7 @@ N = 100
 dt = 0.01
 dx = 1
 dim = 2
+interface_scalar = 1.0
 free_energy = "custom"
 integrator = "euler"
 model = 'AC'

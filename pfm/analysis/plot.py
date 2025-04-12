@@ -20,13 +20,16 @@ def plot_all_densities(list_of_fps: list, list_of_kwargs: list):
 
 def _get_energy(fp: str):
     data = np.loadtxt(fp)
-    time, avg_energy, avg_density = data[:, 0], data[:, 1], data[:, 2]
-    return time, avg_energy, avg_density
+    time, avg_energy, avg_density, timesteps = data[:, 0], data[:, 1], data[:, 2], data[:, 3]
+    return time, avg_energy, avg_density, timesteps
 
 
 def plot_energy(fp: str, **kwargs):
     """ Plots the average free energy and average mass density against time from a simulation """
-    t, e, rho = _get_energy(fp)
+    t, e, rho, tsteps = _get_energy(fp)
+
+    if kwargs.get('use_timesteps', False):
+        t = tsteps
 
     fig, axs = plt.subplots(1, 2, figsize=(8, 6))
     fig.suptitle('Simulation Energy and Mass Density vs. t')

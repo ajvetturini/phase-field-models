@@ -1,0 +1,17 @@
+steps = 20000
+print_every = 1000
+print_trajectory_every = 2000
+N = 100
+dt = 0.001
+dx = 1
+dim = 2
+interface_scalar = 1.0
+free_energy = "custom"
+integrator = "euler"
+model = 'CH'
+use_autodiff = false
+L_phi = 1.0
+custom_initial_condition = true
+
+[magnetic_film]
+delta = 1.0
