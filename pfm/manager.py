@@ -198,6 +198,8 @@ class SimulationManager:
         current_step = 0
         while current_step < self._steps:
             # Determine how many steps to take in the next block
+            if self._config.get('verbose', True):
+                print(f'Beginning step {current_step}')
             remaining_steps = self._steps - current_step
             num_steps_to_run = min(log_every, remaining_steps)
 

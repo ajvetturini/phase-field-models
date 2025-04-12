@@ -53,10 +53,7 @@ def animate(filepath: str, smoothen_animation: bool = True, interpolation_factor
                     all_frames.append(np.array(frame_data))
                 frame_data = []  # reset
                 continue
-            try:
-                frame_data.extend(np.array([float(val) for val in cleaned_line]))
-            except:
-                print(f'')
+            frame_data.extend(np.array([float(val) for val in cleaned_line]))
     smoothed_frames = [gaussian_filter(frame, sigma=sigma) if sigma > 0 else frame for frame in all_frames]
 
     interpolated_frames = []
