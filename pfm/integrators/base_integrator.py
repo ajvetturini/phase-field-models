@@ -4,6 +4,100 @@ Base class for Integrator modules
 import numpy as np
 from typing import Optional
 import jax
+import jax.numpy as jnp
+
+def make_laplacian_fft(dim, dx):
+    def laplacian_fft_single(phi_single):
+        # FFT-based Laplacian for a single species
+        # phi_single shape: (Nx,) or (Nx, Ny) or (Nx, Ny, Nz)
+
+        # Compute FFT
+        phi_fft = jnp.fft.fftn(phi_single)
+
+        # Create frequency arrays for each dimension
+        ks = []
+        for axis, size in enumerate(phi_single.shape):
+            k = jnp.fft.fftfreq(size, dx) * 2 * jnp.pi
+            # Reshape for broadcasting
+            reshape_dims = [1] * dim
+            reshape_dims[axis] = size
+            ks.append(k.reshape(tuple(reshape_dims)))
+
+        # Compute -k^2 (Laplacian in frequency space)
+        k_squared = sum(k ** 2 for k in ks)
+
+        # Apply and transform back
+        return jnp.fft.ifftn(-k_squared * phi_fft).real
+
+    # Map over the species dimension (axis 0)
+    return jax.jit(jax.vmap(laplacian_fft_single))
+
+
+def make_laplacian_concat(dim, dx):
+    def laplacian_single_species(phi):
+        # phi shape: (Nx,) or (Nx, Ny) or (Nx, Ny, Nz)
+        result = jnp.zeros_like(phi)
+
+        if dim == 1:
+            # Center term
+            result = result - 2 * phi
+
+            # Neighbors with periodic wrapping
+            left = jnp.concatenate([phi[-1:], phi[:-1]])
+            right = jnp.concatenate([phi[1:], phi[:1]])
+            result = result + left + right
+
+        elif dim == 2:
+            # Center term
+            result = result - 4 * phi
+
+            # X neighbors
+            x_left = jnp.concatenate([phi[-1:, :], phi[:-1, :]], axis=0)
+            x_right = jnp.concatenate([phi[1:, :], phi[:1, :]], axis=0)
+
+            # Y neighbors
+            y_left = jnp.concatenate([phi[:, -1:], phi[:, :-1]], axis=1)
+            y_right = jnp.concatenate([phi[:, 1:], phi[:, :1]], axis=1)
+
+            result = result + x_left + x_right + y_left + y_right
+
+        elif dim == 3:
+            # Center term
+            result = result - 6 * phi
+
+            # X neighbors
+            x_left = jnp.concatenate([phi[-1:, :, :], phi[:-1, :, :]], axis=0)
+            x_right = jnp.concatenate([phi[1:, :, :], phi[:1, :, :]], axis=0)
+
+            # Y neighbors
+            y_left = jnp.concatenate([phi[:, -1:, :], phi[:, :-1, :]], axis=1)
+            y_right = jnp.concatenate([phi[:, 1:, :], phi[:, :1, :]], axis=1)
+
+            # Z neighbors
+            z_left = jnp.concatenate([phi[:, :, -1:], phi[:, :, :-1]], axis=2)
+            z_right = jnp.concatenate([phi[:, :, 1:], phi[:, :, :1]], axis=2)
+
+            result = result + x_left + x_right + y_left + y_right + z_left + z_right
+
+        return result / (dx ** 2)
+
+    # Map over the species dimension
+    return jax.jit(jax.vmap(laplacian_single_species))
+
+def make_laplacian_roll(dim, dx):
+    def laplacian_single_species(phi):
+        result = -2 * dim * phi  # center term
+
+        if dim >= 1:
+            result += jnp.roll(phi, shift=+1, axis=0) + jnp.roll(phi, shift=-1, axis=0)
+        if dim >= 2:
+            result += jnp.roll(phi, shift=+1, axis=1) + jnp.roll(phi, shift=-1, axis=1)
+        if dim == 3:
+            result += jnp.roll(phi, shift=+1, axis=2) + jnp.roll(phi, shift=-1, axis=2)
+
+        return result / (dx**2)
+
+    return jax.jit(jax.vmap(laplacian_single_species))
 
 class Integrator:
     def __init__(self, model, config):
@@ -13,8 +107,9 @@ class Integrator:
         self._k_laplacian = config.get('k', 1.0)
         self._M = config.get('M', 1.0)
         self._L_phi = config.get('L_phi', 1.0)
-        self._dx = config.get('dx', 1.0)
+        self.dx = config.get('dx', 1.0)
         self._dim = config.get('dim', 2)
+        self._float_type = config.get('float_type', jnp.float32)
         if self._dim <= 0 or self._dim > 3:
             raise Exception('Unable to proceed, package only supports periodic 1D - 3D')
 
@@ -30,15 +125,22 @@ class Integrator:
         # Setup scaling factor:
         distance_scaling_factor = config.get('distance_scaling_factor', 1.0)
         inverse_scaling_factor = 1.0 / distance_scaling_factor
-        self._dx *= inverse_scaling_factor                      # Proportional to m
+        self.dx *= inverse_scaling_factor                      # Proportional to m
         self._M /= inverse_scaling_factor                       # Proportional to m^-1
         self._L_phi /= inverse_scaling_factor
         self._k_laplacian *= np.pow(inverse_scaling_factor, 5)  # Proportional to m^5
+        self._k_laplacian = self._k_laplacian.astype(self._float_type)
 
         self._inverse_scaling_factor = inverse_scaling_factor
         self._distance_scaling_factor = distance_scaling_factor
         self._use_autodiff = config.get('use_autodiff', False)  # Use manual derivative by default
         self._interface_scalar = config.get('interface_scalar', 1.)  # Scales interface energy, defaults to 1
+
+        # Set the laplacian during init so don't need to check if's:
+        self._cell_laplacian_fn = self._get_laplacian_function()
+
+        # Gather derivative of bulk free energy functional:
+        self._dEdp = self._model.der_bulk_free_energy_autodiff if self._use_autodiff else self._model.der_bulk_free_energy
 
     def evolve(self, rho: Optional):
         raise NotImplementedError("evolve must be implemented by derived classes.")
@@ -49,3 +151,9 @@ class Integrator:
         def get_rho_at_bin(indices):
             return rho[:, *indices]
         return jax.vmap(get_rho_at_bin)(bin_indices)
+
+    def _get_laplacian_function(self):
+        # return vmapped_laplacian
+        #return jax.jit(make_laplacian_fft(self._dim, self.dx))
+        #return jax.jit(make_laplacian_concat(self._dim, self.dx))
+        return jax.jit(make_laplacian_roll(self._dim, self.dx))

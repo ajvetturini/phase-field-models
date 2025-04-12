@@ -1,9 +1,6 @@
-#steps = 1e8
-steps = 1e3
-#print_every = 1e5
-print_every = 1e2
-#print_trajectory_every = 1e7
-print_trajectory_every = 1e2
+steps = 1e8
+print_every = 1e5
+print_trajectory_every = 1e7
 N = 512
 dt = 1e-5
 initial_density = 5e-5

@@ -5,6 +5,7 @@ in https://github.com/lorenzo-rovigatti/cahn-hilliard/blob/main/src/utils/Delta.
 """
 import numpy as np
 from pfm.utils.constants import kb
+
 class Delta:
     def __init__(self, config):
         # Read in the Delta-specific config to get parameters:

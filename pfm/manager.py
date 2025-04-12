@@ -341,6 +341,27 @@ class SimulationManager:
         rho_n, _ = jax.lax.scan(_evolve, rho_0, jnp.arange(steps))
         return rho_n
 
+    def debug_run_system(self, steps: int, log_dir: str):
+        """ This is for simple performance test-bedding. This can also be used to rapidly iterate an initial state to
+        a specific point from which you may want to begin logging.
+        """
+        import jax.profiler
+        name = 'init_' + self._system.field_name
+        rho_0 = getattr(self._system, name)  # Error will raise if not specified
+
+        def _evolve(_r, _):
+            _r = self._system.evolve(_r)  # Evolve state first
+            return _r, None
+
+        rho_warmup, _ = jax.lax.scan(_evolve, rho_0, jnp.arange(10))
+        rho_warmup.block_until_ready()  # Wait for warm-up JIT & compute
+
+        jax.profiler.start_trace(log_dir)
+        rho_n, _ = jax.lax.scan(_evolve, rho_0, jnp.arange(steps))
+        rho_n.block_until_ready()
+        jax.profiler.stop_trace()
+        return rho_n
+
 
 if __name__ == '__main__':
     c = toml.load(r'../Examples/Landau/jax_long/input_magnetic_film.toml')

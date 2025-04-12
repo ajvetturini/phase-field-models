@@ -2,7 +2,6 @@ from pfm.energy_models.free_energy_model import FreeEnergyModel
 import jax.numpy as jnp
 import jax
 from functools import partial
-jax.config.update("jax_enable_x64", True)
 from pfm.utils.delta import Delta
 
 class SimpleWertheim(FreeEnergyModel):
@@ -32,7 +31,9 @@ class SimpleWertheim(FreeEnergyModel):
 
     def _X(self, rho):
         """ Calculates fraction of molecules that are bonded (or unbounded) using the valence delta specified """
-        return (-1.0 + jnp.sqrt(1.0 + 2.0 * self._two_valence_delta * rho)) / (self._two_valence_delta * rho)
+        rho_safe = jnp.maximum(rho, 1e-12)
+        denom = self._two_valence_delta * rho_safe
+        return (-1.0 + jnp.sqrt(1.0 + 2.0 * self._two_valence_delta * rho)) / denom
 
     @partial(jax.jit, static_argnums=(0,))
     def bulk_free_energy(self, rho_species):
@@ -58,25 +59,23 @@ class SimpleWertheim(FreeEnergyModel):
         return f_ref + f_bond
 
     @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy(self, species, rho_species):
-        """ Calculates derivative of bulk free energy w.r.t. density of spatial grid. This is actually vmapped over
-        the species.
-        """
-        rho = rho_species[species]
+    def der_bulk_free_energy(self, rho):
+        # rho_all_species has shape (1, Nx, Ny)
         der_f_ref = jnp.where(
             rho < self._regularisation_delta,
             rho / self._regularisation_delta + self._log_delta - 1.0,
-            jnp.log(rho)
+            jnp.log(jnp.maximum(rho, 1e-9))  # Stability / safety so no nan
         )
         der_f_ref += 2 * self._B2 * rho
 
-        X = self._X(rho)
+        X = self._X(rho).astype(rho.dtype)  # Ensure _X is vectorized
         der_f_bond = jnp.where(
             rho > 0.,
-            self._valence * jnp.log(X),
+            self._valence * jnp.log(X),  # Consider safety: jnp.log(jnp.maximum(X, 1e-9))?
             0.0,
         )
-        return der_f_ref + der_f_bond
+
+        return der_f_bond + der_f_ref
 
     def _elementwise_bulk_free_energy(self, r0):
         """ Calculates the bulk free energy for each point in the grid. """

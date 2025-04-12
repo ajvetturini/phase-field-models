@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 from functools import partial
 from copy import deepcopy
-jax.config.update("jax_enable_x64", True)
+
 
 class PhaseFieldModel:
     """
@@ -147,10 +147,11 @@ class PhaseFieldModel:
         self.V_bin = self.dx ** 3
 
         self.integrator = integrator
-        dtype = config.get('float_type', jnp.float64)
+        dtype = config.get('float_type', jnp.float32)
         self._float_type = dtype
-        if dtype != jnp.float64:
-            print('NOTE: 64-bit precision not being used, stability may be off.')
+        if dtype == jnp.float64:
+            print('NOTE: 64-bit precision specified, operations may be slow if not on double precision specific '
+                  'hardware.')
         setattr(self, f"init_{self.field_name}", jnp.array(initial_field, dtype=dtype))
         self._grad_diff_method = config.get('pfm_diff_method', 'central')  # Forward or central difference in gradient
 

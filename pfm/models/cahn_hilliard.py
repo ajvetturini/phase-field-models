@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import jax
 from functools import partial
 from pfm.models.phase_field_model import PhaseFieldModel
-jax.config.update("jax_enable_x64", True)
+
 
 class CahnHilliard(PhaseFieldModel):
     def __init__(self, free_energy_model, config, integrator, rng, custom_fn=None):
@@ -21,35 +21,10 @@ class CahnHilliard(PhaseFieldModel):
         self.M /= self._inverse_scaling_factor  # Proportional to M^-1
         self.k_laplacian *= self._inverse_scaling_factor ** 5  # Proportional to M^5
 
+    @partial(jax.jit, static_argnums=(0,))
     def evolve(self, rho):
         return self.integrator.evolve(rho)
 
-    '''@partial(jax.jit, static_argnums=(0,))
-    def average_free_energy(self, rho: jnp.ndarray) -> jnp.ndarray:
-        """
-        Computes the average free energy per bin, including bulk and interfacial contributions.
-        Assumes: rho.shape = (N_species, Nx, Ny) or similar
-        """
-        num_bins = jnp.prod(jnp.array(rho.shape[1:], dtype=jnp.int32))  # Use int32 or int64
-
-        # 1. Calculate interfacial contribution (vectorized)
-        # Assuming vectorized_gradient returns shape (N_species, dim, Nx, Ny, ...)
-        all_gradients = self.gradient(rho)
-
-        # Sum of squares of gradient components (sum over 'dim' axis, assuming it's axis 1)
-        sum_sq_grad = jnp.sum(all_gradients ** 2, axis=1)  # Shape: (N_species, Nx, Ny, ...)
-        total_interfacial_density = self.k_laplacian * jnp.sum(sum_sq_grad, axis=0)  # Shape: (Nx, Ny, ...)
-
-        # 2. Calculate bulk contribution using vectorized operations
-        bulk_density = self.free_energy_model.bulk_free_energy(rho)
-
-        # 3. Combine and average
-        total_free_energy_density = bulk_density + total_interfacial_density  # Shape: (Nx, Ny, ...)
-        total_fe = jnp.sum(total_free_energy_density) * self.V_bin
-        avg_fe = total_fe / num_bins
-
-        return avg_fe
-'''
 
     @partial(jax.jit, static_argnums=(0,))
     def average_free_energy(self, rho: jnp.ndarray) -> jnp.ndarray:

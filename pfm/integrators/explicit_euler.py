@@ -3,15 +3,12 @@ from pfm.integrators.base_integrator import Integrator
 import jax
 from functools import partial
 
-# Make sure to use float64 for stability or else divergence D:
-jax.config.update("jax_enable_x64", True)
-
 class ExplicitEuler(Integrator):
 
     def __init__(self, model, config):
         super().__init__(model, config)
-        self._dx = jnp.array(self._dx, dtype=jnp.float64)
-        self._dt = jnp.array(self._dt, dtype=jnp.float64)
+        self._dx = jnp.array(self.dx, dtype=self._float_type)
+        self._dt = jnp.array(self._dt, dtype=self._float_type)
 
         # Check stability of hyperparameters:
         k = 2 * self._M * self._k_laplacian
@@ -23,33 +20,34 @@ class ExplicitEuler(Integrator):
                 print('Using autodiff for bulk energy derivative')
             print(f'Stability term: {lhs} | This term should be << 1 or else Explicit Euler will be unstable.')
 
-    @partial(jax.jit, static_argnums=(0, 2))
-    def _evolve_cahn_hilliard(self, rho, dEdp):
-        """
-        Explicit Euler step for Cahn-Hilliart
+        # In the init we set the evolve function, allowing us to easily change what data gets transferred to individual
+        # energy models:
+        if config.get('model', 'ch').lower() == 'ch':
+            self._evolve_fn = self._evolve_cahn_hilliard
+        elif config.get('model', 'ac').lower() == 'ac':
+            self._evolve_fn = self._evolve_allen_cahn
+        else:
+            raise Exception('Invalid integrator method, valid options are: `ch`, `ac`, ')
 
-        Computes:
-        rho(t+dt) = rho(t) + M * Δ (∂F/∂ρ) * dt
-        """
-        # Get local rho_species for all bins
-        local_rhos_per_bin = self.get_local_rho_species(rho, self.bin_indices)  # Shape: (N_bins, N_species)
+    @partial(jax.jit, static_argnums=(0,))
+    def _evolve_cahn_hilliard(self, rho):
+        def laplacian(phi):
+            result = -2 * (phi.ndim - 1) * phi
+            for axis in range(1, phi.ndim):  # skip species axis (0)
+                result += jnp.roll(phi, +1, axis) + jnp.roll(phi, -1, axis)
+            return result / self._dx ** 2
 
-        # Compute dF/dρ per species and bin
-        def bulk_term_for_bin(local_rho):
-            return jax.vmap(dEdp, in_axes=(0, None))(
-                jnp.arange(self._model.N_species()), local_rho
-            )
-        bulk_term_scalar = jax.vmap(bulk_term_for_bin)(local_rhos_per_bin) # vmap over bins
-        bulk_energy = bulk_term_scalar.reshape((self._model.N_species(),) + rho.shape[1:])  # Re-shape back
+        # Assuming _dEdp is vectorized over (N_species, Nx, Ny)
+        bulk_energy = self._dEdp(rho)  # shape: (N_species, Nx, Ny)
 
-        lap_rho = self._cell_laplacian(rho)  # shape: (N_species, Nx, Ny)
+        lap_rho = laplacian(rho)
         chemical_potential = bulk_energy - self._interface_scalar * self._k_laplacian * lap_rho
-        lap_d_rho = self._cell_laplacian(chemical_potential)
+        lap_d_rho = laplacian(chemical_potential)
 
         return rho + self._M * lap_d_rho * self._dt
 
-    @partial(jax.jit, static_argnums=(0, 2))
-    def _evolve_allen_cahn(self, phi, dEdp):
+    @partial(jax.jit, static_argnums=(0, ))
+    def _evolve_allen_cahn(self, phi):
         """
         Explicit Euler step for Allen-Cahn
 
@@ -64,7 +62,7 @@ class ExplicitEuler(Integrator):
 
         # Compute dF/dρ per species and bin
         def bulk_term_for_bin(local_rho):
-            return jax.vmap(dEdp, in_axes=(0, None))(
+            return jax.vmap(self._dEdp, in_axes=(0, None))(
                 jnp.arange(self._model.N_species()), local_rho
             )
 
@@ -77,63 +75,24 @@ class ExplicitEuler(Integrator):
 
         return phi - (self._L_phi * energy_difference * self._dt)
 
-    def evolve(self, rho, method='ch'):
+    def evolve(self, rho):
         """ The order parameter (rho, phi) is passed in and updated. We need to specify which derivative function
          to use if autodiff is enabled.
          """
-        # Gather derivative of bulk free energy functional:
-        dEdp = self._model.der_bulk_free_energy_autodiff if self._use_autodiff else self._model.der_bulk_free_energy
-
-        if method == 'ch':
-            new_rho = self._evolve_cahn_hilliard(rho, dEdp)
-        elif method == 'ac':
-            new_rho = self._evolve_allen_cahn(rho, dEdp)
-        else:
-            raise Exception('Invalid integrator method.')
-
         #if jnp.isnan(new_rho).any():  # Can't uncomment or jit will break
         #    raise Exception('ERROR: NaN found in rho update. This is likely due to numerical method diverging.')
+        return self._evolve_fn(rho)
 
-        return new_rho
 
-    @partial(jax.jit, static_argnums=(0,))
     def _cell_laplacian(self, phi):
         """
-        Periodic boundary conditions LaPlacian (uses roll below)
+        Periodic boundary conditions LaPlacian (uses roll). This is defined during base Integrator class so we don't
+        need to check the if conditionals constantly
 
         phi: shape (N_species, Ny, Nx,)
         Returns: shape (N_species, Ny, Nx)
         """
-        if self._dim == 1:
-            left = jnp.roll(phi, shift=+1, axis=1)
-            right = jnp.roll(phi, shift=-1, axis=1)
-            center = phi
-            return (left + right - 2 * center) / self._dx ** 2
-
-        elif self._dim == 2:
-            up = jnp.roll(phi, shift=+1, axis=1)
-            down = jnp.roll(phi, shift=-1, axis=1)
-            left = jnp.roll(phi, shift=+1, axis=2)
-            right = jnp.roll(phi, shift=-1, axis=2)
-            center = phi
-
-            # Assume box-like system (dx = dy = dz)
-            return (up + down + left + right - 4 * center) / (self._dx ** 2)
-
-        elif self._dim == 3:
-            up = jnp.roll(phi, shift=+1, axis=1)
-            down = jnp.roll(phi, shift=-1, axis=1)
-            left = jnp.roll(phi, shift=+1, axis=2)
-            right = jnp.roll(phi, shift=-1, axis=2)
-            front = jnp.roll(phi, shift=+1, axis=3)
-            back = jnp.roll(phi, shift=-1, axis=3)
-            center = phi
-
-            # Assume box-like system (dx = dy = dz)
-            return (up + down + left + right + front + back - 6 * center) / (self._dx ** 3)
-
-        else:
-            raise NotImplementedError("Only supported up until 3D")
+        return self._cell_laplacian_fn(phi)
 
 
 

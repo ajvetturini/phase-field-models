@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import jax
 from functools import partial
 from pfm.models.phase_field_model import PhaseFieldModel
-jax.config.update("jax_enable_x64", True)
+
 
 class AllenCahn(PhaseFieldModel):
     def __init__(self, free_energy_model, config, integrator, rng, custom_fn=None):
@@ -21,8 +21,7 @@ class AllenCahn(PhaseFieldModel):
         self.k *= self._inverse_scaling_factor ** 5   # Proportional to gamma^5
 
     def evolve(self, phi):
-        # Need to specify allen cahn below as integrator manages this
-        return self.integrator.evolve(phi, method='ac')
+        return self.integrator.evolve(phi)
 
     @partial(jax.jit, static_argnums=(0,))
     def average_free_energy(self, phi: jnp.ndarray) -> jnp.ndarray:
