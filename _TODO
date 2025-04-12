@@ -1,6 +1,6 @@
 TODO Implementation List
 
--> Verify 1D also
+-> Clean up Examples folder
 -> Remaining energy models
 -> Autodiff implementations
 -> Results comparison w/ CUDA-based implementation!
