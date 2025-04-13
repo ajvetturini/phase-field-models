@@ -1,4 +1,4 @@
-steps = 1e8
+steps = 1e7
 print_every = 1e5
 print_trajectory_every = 1e7
 N = 512
@@ -8,6 +8,7 @@ free_energy = "simple_wertheim"
 dx = 10
 k = 1e6
 write_path = './jax/'
+interface_scalar = 2.0  # THIS IS IMPORTANT!
 
 [wertheim]
 valence = 4

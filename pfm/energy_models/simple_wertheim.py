@@ -14,7 +14,7 @@ class SimpleWertheim(FreeEnergyModel):
         self._B2 = wertheim_config.get('B2')
         self._valence = int(wertheim_config.get('valence'))
         self._delta = Delta(wertheim_config.get('delta'))
-        self._regularisation_delta = wertheim_config.get('regularisation_delta', 1e-9)  # Default to a small value ~0
+        self._regularisation_delta = wertheim_config.get('regularisation_delta', 1e-12)  # Default to a small value ~0
 
         # Scale constants if necesary:
         self._B2 *= (self._inverse_scaling_factor**3)

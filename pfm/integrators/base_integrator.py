@@ -110,6 +110,10 @@ class Integrator:
         self.dx = config.get('dx', 1.0)
         self._dim = config.get('dim', 2)
         self._float_type = config.get('float_type', jnp.float32)
+        if isinstance(self._float_type, str):
+            if self._float_type == 'float64':
+                self._float_type = jnp.float64
+
         if self._dim <= 0 or self._dim > 3:
             raise Exception('Unable to proceed, package only supports periodic 1D - 3D')
 
