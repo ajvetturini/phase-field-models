@@ -12,22 +12,27 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
 - Free energy models implemented: ``Landau`` | 
 - Numerical Integrators implemented: ``Explicit Euler`` |
 - Only **periodic** boundary conditions are handled in this implementation. 
-- Automatic Differentiation is supported for the free energy models. However, you must be careful about dimensionality and size. If N is large with many species, you're array will grow very large and memory requirements will become a concern. 
-  - If you are developing your own energy model for a process and want to differentiate through the updates, you will also need to determine if you need to use jax.jacobian based on your free energy model.
 - Currently, all grids are handled with constant size $N$ and grid-cell size of $dx$
-- Be careful with how the density field is handled (i.e., it's shape)!
 - Free energies are handled as *dimensionless*, and the equation constants (e.g., M / mobility constant in Cahn-Hilliard) is actually $M'=K_bTM$ which is treated as 1 (nm s $)^{-1}$
 - The input files in the Examples directory will show how scaling constants (for the interface / bulk energy values in the Allen-Cahn or Cahn-Hilliard) can be incorporated through the input config TOML to better fit this package to your specific needs
+
+# Tips
+- Be careful with how the density field is handled (i.e., it's shape is one of: (Ns, Nx), (Ns, Nx, Ny) or (Ns, Nx, Ny, Nz) where Ns is the number of species in the simulation)!
 - The [MagneticFilm.py](https://github.com/ajvetturini/phase-field-models/blob/main/Examples/MagneticFilm/run.py) example shows how you can incorporate your own energy model to be solved via Allen-Cahn or Cahn-Hilliard as well as specifying unique initialization conditions outside of the default method using the ``initial_density`` config parameter.
 - If your system has multiple GPUs, you can run the following command in terminal to specify a device: ``` CUDA_VISIBLE_DEVICES="DEVICE_NUMBER" python run.py ``` where the run.py script will read in a TOML and start a run (see [this example](https://github.com/ajvetturini/phase-field-models/blob/main/Examples/Landau/cuda_vs_jax/run.py))
+- When developing your own energy model, start with float32 precision. Increasing this to float64 is necessary for more complex free energy models (e.g., any of the Wertheim models). 
+  - Float64 will greatly reduce the efficiency of the model (and is also dependent on GPU hardware)
+  - The LaPlacian operator is the computational overhead since it is calculated twice during Cahn-Hilliard updates
+  - Other jax-based implementations for handling the periodic boundary condition laplacian (e.g., FFT or Convolutions) did not seem to improve performance, but that may be due to my specific implementation!
+
 
 # Future Features
 Below is a list of features that would be nice to be implemented. Please let me know (see end of README / open a PR) if you want to see any other features added!
 
 - simple_wertheim, and saleh free energy functions
-- 3D support with Shard Mapping
 - Analysis toolkit features
 - Different numerical integrators
+- Investigating periodic conditions in JAX
 
 # Citations / Links
 To learn more about the free energy models implemented in this package, please see the citations below. Also, if you used this package then let me know and I can add a citation here!

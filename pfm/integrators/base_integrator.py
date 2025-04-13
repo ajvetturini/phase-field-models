@@ -32,58 +32,6 @@ def make_laplacian_fft(dim, dx):
     # Map over the species dimension (axis 0)
     return jax.jit(jax.vmap(laplacian_fft_single))
 
-
-def make_laplacian_concat(dim, dx):
-    def laplacian_single_species(phi):
-        # phi shape: (Nx,) or (Nx, Ny) or (Nx, Ny, Nz)
-        result = jnp.zeros_like(phi)
-
-        if dim == 1:
-            # Center term
-            result = result - 2 * phi
-
-            # Neighbors with periodic wrapping
-            left = jnp.concatenate([phi[-1:], phi[:-1]])
-            right = jnp.concatenate([phi[1:], phi[:1]])
-            result = result + left + right
-
-        elif dim == 2:
-            # Center term
-            result = result - 4 * phi
-
-            # X neighbors
-            x_left = jnp.concatenate([phi[-1:, :], phi[:-1, :]], axis=0)
-            x_right = jnp.concatenate([phi[1:, :], phi[:1, :]], axis=0)
-
-            # Y neighbors
-            y_left = jnp.concatenate([phi[:, -1:], phi[:, :-1]], axis=1)
-            y_right = jnp.concatenate([phi[:, 1:], phi[:, :1]], axis=1)
-
-            result = result + x_left + x_right + y_left + y_right
-
-        elif dim == 3:
-            # Center term
-            result = result - 6 * phi
-
-            # X neighbors
-            x_left = jnp.concatenate([phi[-1:, :, :], phi[:-1, :, :]], axis=0)
-            x_right = jnp.concatenate([phi[1:, :, :], phi[:1, :, :]], axis=0)
-
-            # Y neighbors
-            y_left = jnp.concatenate([phi[:, -1:, :], phi[:, :-1, :]], axis=1)
-            y_right = jnp.concatenate([phi[:, 1:, :], phi[:, :1, :]], axis=1)
-
-            # Z neighbors
-            z_left = jnp.concatenate([phi[:, :, -1:], phi[:, :, :-1]], axis=2)
-            z_right = jnp.concatenate([phi[:, :, 1:], phi[:, :, :1]], axis=2)
-
-            result = result + x_left + x_right + y_left + y_right + z_left + z_right
-
-        return result / (dx ** 2)
-
-    # Map over the species dimension
-    return jax.jit(jax.vmap(laplacian_single_species))
-
 def make_laplacian_roll(dim, dx):
     def laplacian_single_species(phi):
         result = -2 * dim * phi  # center term
@@ -111,8 +59,11 @@ class Integrator:
         self._dim = config.get('dim', 2)
         self._float_type = config.get('float_type', jnp.float32)
         if isinstance(self._float_type, str):
-            if self._float_type == 'float64':
+            if self._float_type == 'float64':  # Only valid option for float_type is float64
                 self._float_type = jnp.float64
+            else:
+                raise Exception(f'Invalid float_type specified: {self._float_type} | Valid options are `float64`. Do '
+                                f'not specify this field in the config.toml if you want to use float32 (default).')
 
         if self._dim <= 0 or self._dim > 3:
             raise Exception('Unable to proceed, package only supports periodic 1D - 3D')
@@ -157,7 +108,4 @@ class Integrator:
         return jax.vmap(get_rho_at_bin)(bin_indices)
 
     def _get_laplacian_function(self):
-        # return vmapped_laplacian
-        #return jax.jit(make_laplacian_fft(self._dim, self.dx))
-        #return jax.jit(make_laplacian_concat(self._dim, self.dx))
         return jax.jit(make_laplacian_roll(self._dim, self.dx))

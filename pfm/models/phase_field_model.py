@@ -150,8 +150,8 @@ class PhaseFieldModel:
         dtype = config.get('float_type', jnp.float32)
         self._float_type = dtype
         if dtype == jnp.float64:
-            print('NOTE: 64-bit precision specified, operations may be slow if not on double precision specific '
-                  'hardware.')
+            print('NOTE: 64-bit precision specified, operations will be slow if not on double precision specific '
+                  'hardware. Even then, the roll laplacian is quite slow.')
         setattr(self, f"init_{self.field_name}", jnp.array(initial_field, dtype=dtype))
         self._grad_diff_method = config.get('pfm_diff_method', 'central')  # Forward or central difference in gradient
 

@@ -32,6 +32,7 @@ class ExplicitEuler(Integrator):
     @partial(jax.jit, static_argnums=(0,))
     def _evolve_cahn_hilliard(self, rho):
         def laplacian(phi):
+            # NOTE: This is very slow specifically in float64 mode, need to look into this
             result = -2 * (phi.ndim - 1) * phi  # ndim - 1 to account for species dimension
             for axis in range(1, phi.ndim):  # skip species axis (0)
                 result += (jnp.roll(phi, +1, axis) + jnp.roll(phi, -1, axis))
