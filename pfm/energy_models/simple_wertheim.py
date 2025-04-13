@@ -64,9 +64,9 @@ class SimpleWertheim(FreeEnergyModel):
         der_f_ref = jnp.where(
             rho < self._regularisation_delta,
             rho / self._regularisation_delta + self._log_delta - 1.0,
-            jnp.log(jnp.maximum(rho, 1e-9))  # Stability / safety so no nan
+            jnp.log(jnp.maximum(rho, 1e-12))  # Stability / safety so no nan
         )
-        der_f_ref += 2 * self._B2 * rho
+        der_f_ref += (2 * self._B2 * rho)
 
         X = self._X(rho).astype(rho.dtype)  # Ensure _X is vectorized
         der_f_bond = jnp.where(

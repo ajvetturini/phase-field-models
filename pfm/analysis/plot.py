@@ -49,12 +49,13 @@ def plot_energy(fp: str, **kwargs):
 def plot_all_energies(list_of_fps: list, **kwargs):
     """ Plots multiple files, each with its corresponding keyword arguments."""
 
-    all_t, all_e, all_rho = [], [], []
+    all_t, all_e, all_rho, all_step = [], [], [], []
     for fp in list_of_fps:
-        nt, ne, nr = _get_energy(fp)
+        nt, ne, nr, nt = _get_energy(fp)
         all_t.append(nt)
         all_e.append(ne)
         all_rho.append(nr)
+        all_step.append(nt)
 
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
     all_labels = kwargs.get('labels', [])
