@@ -8,6 +8,7 @@ free_energy = "simple_wertheim"
 dx = 10
 k = 1e6
 write_path = './jax/'
+use_autodiff = true
 interface_scalar = 2.0
 
 [wertheim]

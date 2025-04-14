@@ -2,13 +2,15 @@
 The base FreeEnergyModel class that will pull in the relevent energy models (e.g., landau) to construct a total
 FreeEnergyModel used in Cahn Hilliard simulations.
 """
-
+import jax.numpy as jnp
 class FreeEnergyModel:
 
     def __init__(self, config):
         self._config = config
         self._inverse_scaling_factor = 1.0 / config.get("distance_scaling_factor", 1.0)
         self._density_conversion_factor = self._inverse_scaling_factor ** 3
+        self._floor_safety = jnp.array(1e-12, dtype=jnp.float64) if hasattr(config, 'float_type') else (
+            jnp.array(1e-7, dtype=jnp.float32))
 
     def average_energy(self, u):
         raise NotImplementedError('Not implemented here.')

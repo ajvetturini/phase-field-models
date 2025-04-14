@@ -4,6 +4,8 @@ import jax
 from functools import partial
 from pfm.utils.delta import Delta
 
+# TODO: Convert the _X and der_bulk to be better handled w/ float32 using clips
+
 class SimpleWertheim(FreeEnergyModel):
 
     def __init__(self, config):
@@ -14,7 +16,7 @@ class SimpleWertheim(FreeEnergyModel):
         self._B2 = wertheim_config.get('B2')
         self._valence = int(wertheim_config.get('valence'))
         self._delta = Delta(wertheim_config.get('delta'))
-        self._regularisation_delta = wertheim_config.get('regularisation_delta', 1e-12)  # Default to a small value ~0
+        self._regularisation_delta = wertheim_config.get('regularisation_delta', self._floor_safety)
 
         # Scale constants if necesary:
         self._B2 *= (self._inverse_scaling_factor**3)
@@ -31,14 +33,14 @@ class SimpleWertheim(FreeEnergyModel):
 
     def _X(self, rho):
         """ Calculates fraction of molecules that are bonded (or unbounded) using the valence delta specified """
-        rho_safe = jnp.maximum(rho, 1e-12)
+        rho_safe = jnp.maximum(rho, self._floor_safety)
         denom = self._two_valence_delta * rho_safe
         return (-1.0 + jnp.sqrt(1.0 + 2.0 * self._two_valence_delta * rho)) / denom
 
     @partial(jax.jit, static_argnums=(0,))
     def bulk_free_energy(self, rho_species):
         r0 = rho_species[0]  # Only 1 species in SimpleWertheim
-        r0 = jnp.sum(r0)  # Sum up
+        #r0 = jnp.sum(r0)  # Sum up
         rho_sqr = r0 * r0  # Calculate square once
 
         # Reference energy:
@@ -102,9 +104,33 @@ class SimpleWertheim(FreeEnergyModel):
         return jnp.sum(self._elementwise_bulk_free_energy(rho_species))
 
     @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy_autodiff(self, species, rho_species):
+    def der_bulk_free_energy_autodiff(self, rho):
         """ Uses autodiff to evaluate the bulk_free_energy term """
-        elementwise_grad_fn = jax.grad(self._total_bulk_free_energy)(rho_species)
-        return elementwise_grad_fn
+        def _bulk_free_energy(r0):
+            rho_sqr = r0 * r0  # Calculate square once
+
+            # Reference energy:
+            f_ref = jnp.where(r0 < self._regularisation_delta,  # Wherever order param < 0 (gas) use the regularisation
+                              rho_sqr / (2.0 * self._regularisation_delta) + (
+                                      r0 * self._log_delta - self._regularisation_delta / 2.0
+                              ),
+                              r0 * jnp.log(r0 * self._density_conversion_factor))  # Otherwise in liquid us r0
+
+            f_ref += -r0 + self._B2 * rho_sqr
+
+            # Bond energy:
+            f_bond = jnp.where(r0 > 0.0,
+                               self._valence * r0 * (jnp.log(self._X(r0)) + 0.5 * (1.0 - self._X(r0))),
+                               0.0
+                               )
+
+            return f_ref + f_bond
+
+        rho = rho[0]  # One species, otherwise would need to vmap over, this is now a (N, N) array
+        grad_bulk = jax.grad(_bulk_free_energy)
+        per_element_grad_2d = jax.vmap(jax.vmap(grad_bulk))
+        result_2d = per_element_grad_2d(rho)
+        return jnp.expand_dims(result_2d, axis=0)
+
 
 

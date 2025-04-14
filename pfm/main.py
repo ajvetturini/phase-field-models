@@ -4,7 +4,8 @@ import time
 from pfm.manager import SimulationManager
 import jax
 
-def run(config_filepath: str, override_use_jax: bool, custom_init_fn: Callable = None, custom_energy_fn: Callable = None):
+def run(config_filepath: str, override_use_jax: bool = False,
+        custom_init_fn: Callable = None, custom_energy_fn: Callable = None):
     """ Specify a config file, and optionally a custom init / custom energy function """
     c = toml.load(config_filepath)
 
