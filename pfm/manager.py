@@ -46,6 +46,10 @@ class SimulationManager:
         self._trajectories = []
         self._custom_initial_condition = custom_initial_condition
 
+        # Store init data from system:
+        name = 'init_' + self._system.field_name
+        self.init_field = getattr(self._system, name)
+
     def close(self):
         for traj in self._trajectories:
             if traj:

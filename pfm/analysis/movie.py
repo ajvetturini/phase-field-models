@@ -74,7 +74,7 @@ def animate(filepath: str, smoothen_animation: bool = True, interpolation_factor
         
 
     norm = colors.Normalize(vmin=np.min(interpolated_frames), vmax=np.max(interpolated_frames))
-    image = ax.imshow(interpolated_frames[0], norm=norm)
+    image = ax.imshow(interpolated_frames[0], norm=norm, cmap=kwargs.get('cmap', 'plasma'))
     cbar = fig.colorbar(image, label="$\psi$")
     ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])
 
