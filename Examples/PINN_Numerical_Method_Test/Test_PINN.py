@@ -22,6 +22,7 @@ start_width = start_length = -1.0  # Domain in X / Y goes from [-1, 1]
 # Scaling constants:
 epsilon = 0.05  # Interfacial width parameter
 r = 0.4
+bulk_energy = lambda h: h**3 - h
 
 class PINN(nn.Module):
     # Standard feed-forward NN w/ tanh activation function
@@ -124,7 +125,7 @@ def compute_pde_residuals(params, apply_fn, x_domain):
         dmu_dyy = vmap(compute_mu_yy)(x).reshape(-1, 1)  # Shape (30000, 1)
 
         # Compute bulk energy (double-well potential)
-        f_h = u ** 3 - u
+        f_h = bulk_energy(u)
 
         # PDE residuals
         eq1 = du_dt_vals - (dmu_dxx + dmu_dyy)
