@@ -17,7 +17,7 @@ plot_all_densities(files1, kwargs_list)
 #plot_all_densities(files2, kwargs_list)
 #plot_all_densities(files3, kwargs_list)
 
-#animate(r'./trajectory_species_0.dat', cmap='plasma', interval=250)
+animate(r'./trajectory_species_0.dat', cmap='plasma', interval=250)
 
 files = [
     r'./energy.dat',
@@ -30,4 +30,4 @@ labels = [
     #'CUDA',
 ]
 kwargs = {"cmap": "plasma", 'labels': labels}
-#plot_all_energies(files, **kwargs)
+plot_all_energies(files, **kwargs)
