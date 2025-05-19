@@ -76,12 +76,7 @@ def custom_initial_condition(init_phi, r=0.4, epsilon=0.05, Lx=1.0, Ly=1.0):
     return init_phi
 
 # NOTES
-# Overall, this is a SHORT simulation! We are looking at the early separation (first few hundred timesteps)
-# The system achieves a minimum relatively quickly (within few thousand steps), so if you run a system
-# too long, the results file may not tell an accurate story.
-
-# ALSO: If you specify a custom function using jax, you MUST specify the CUDA device here prior to importing jax
-#       See how main.py is structured!
+# This is simply a test to compare PINN results to
 c = toml.load('input.toml')
 manager = SimulationManager(c, custom_energy=PINN_Test, custom_initial_condition=custom_initial_condition)
 start = time.time()
