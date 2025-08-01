@@ -25,15 +25,6 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
   - The LaPlacian operator is the computational overhead since it is calculated twice during Cahn-Hilliard updates
   - Other jax-based implementations for handling the periodic boundary condition laplacian (e.g., FFT or Convolutions) did not seem to improve performance, but that may be due to my specific implementation!
 
-
-# Future Features
-Below is a list of features that would be nice to be implemented. Please let me know (see end of README / open a PR) if you want to see any other features added!
-
-- simple_wertheim, and saleh free energy functions
-- Analysis toolkit features
-- Different numerical integrators
-- Investigating periodic conditions in JAX
-
 # Citations / Links
 To learn more about the free energy models implemented in this package, please see the citations below. Also, if you used this package then let me know and I can add a citation here!
 
