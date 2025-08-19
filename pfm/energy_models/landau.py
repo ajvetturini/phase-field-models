@@ -31,7 +31,9 @@ class Landau(FreeEnergyModel):
         We must pass in rhos for other energy functions, it isn't used here though.
         """
         r = rho_species[0]  # Only 1 species in landau
-        return -self._epsilon * r + r**3
+        # return -self._epsilon * r + r**3
+        df = -self._epsilon * r + r**3
+        return df[None, ...]   # (1, *grid_shape)
 
     def _elementwise_bulk_free_energy(self, rho_species):
         """ Calculates the bulk free energy for each point in the grid. """

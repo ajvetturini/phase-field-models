@@ -1,0 +1,19 @@
+steps = 20000
+print_every = 1000
+print_trajectory_every = 2000
+N = 64
+dt = 0.001
+dx = 1
+dim = 2
+interface_scalar = 1.0
+free_energy = "custom"
+integrator = "euler"
+model = 'AC'
+use_autodiff = false
+L_phi = 1.0
+custom_initial_condition = true
+
+[grain_growth]
+N_phases = 5
+W = 1.0
+gamma = 1.0

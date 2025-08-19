@@ -10,7 +10,7 @@ class ExplicitEuler(Integrator):
         self._dx = jnp.array(self.dx, dtype=self._float_type)
         self._dt = jnp.array(self._dt, dtype=self._float_type)
 
-        # Check stability of hyperparameters:
+        # Check (roughly) stability of hyperparameters for explicit euler
         k = 2 * self._M * self._k_laplacian
         lhs = k * self._dt / self._dx**4
 
@@ -32,7 +32,7 @@ class ExplicitEuler(Integrator):
     @partial(jax.jit, static_argnums=(0,))
     def _evolve_cahn_hilliard(self, rho):
         def laplacian(phi):
-            # NOTE: This is very slow specifically in float64 mode, need to look into this
+            # NOTE: This is very slow specifically in float64 mode
             result = -2 * (phi.ndim - 1) * phi  # ndim - 1 to account for species dimension
             for axis in range(1, phi.ndim):  # skip species axis (0)
                 result += (jnp.roll(phi, +1, axis) + jnp.roll(phi, -1, axis))

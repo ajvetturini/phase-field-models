@@ -14,8 +14,6 @@ class PINN_Test(FreeEnergyModel):
         self._energy_config = config.get('PINN_test')
         self._delta = jnp.array(self._energy_config.get('delta', 1.0), dtype=jnp.float64)
 
-        self._autograd_fn = jax.jit(jax.grad(self._elementwise_bulk_free_energy))
-
     def N_species(self):
         return 1
 
@@ -23,23 +21,12 @@ class PINN_Test(FreeEnergyModel):
     def der_bulk_free_energy(self, phi):
         """ Derivative of the double-well bulk free energy. """
         return jnp.pow(phi, 3) - phi
-
-    def _elementwise_bulk_free_energy(self, phi_species):
-        """ Calculates the double-well bulk free energy for each point in the grid. """
-        return jnp.pow(phi_species, 4) - 2 * (jnp.pow(phi_species, 2))
-
-    def _total_bulk_free_energy(self, rho_species):
-        return jnp.sum(self._elementwise_bulk_free_energy(rho_species))
-
-    @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy_autodiff(self, species, rho_species):
-        """ Uses autodiff to evaluate the bulk_free_energy term """
-        elementwise_grad_fn = jax.grad(self._total_bulk_free_energy)(rho_species)
-        return elementwise_grad_fn
+        #return 3 * jnp.pow(phi, 2) - 1
 
     def bulk_free_energy(self, rho_species):
         op = rho_species[0]  # Only 1 species
         return jnp.pow(op, 4) - 2 * jnp.pow(op, 2)
+        #return jnp.pow(op, 3) - op
 
 
 def custom_initial_condition(init_phi, r=0.4, epsilon=0.05, Lx=1.0, Ly=1.0):

@@ -3,7 +3,7 @@ import toml
 import jax
 import jax.numpy as jnp
 from pfm.energy_models import Landau, SimpleWertheim, GenericWertheim, SalehWertheim
-from pfm.integrators import ExplicitEuler
+from pfm.integrators import ExplicitEuler, SemiImplicitSpectral
 from pfm.models import CahnHilliard, AllenCahn
 import os
 from functools import partial
@@ -75,8 +75,10 @@ class SimulationManager:
     def _read_in_integrator(model, config, integrator_name):
         if integrator_name.lower() == 'euler':
             return ExplicitEuler(model, config)
+        elif integrator_name.lower() == 'semi_implicit' or integrator_name.lower() == 'spectral':
+            return SemiImplicitSpectral(model, config)
         else:
-            raise Exception('Invalid integrator scheme, valid options are: euler, ')
+            raise Exception('Invalid integrator scheme, valid options are: euler, semi_implicit (or spectral), ')
 
     @staticmethod
     def _read_in_model(model, config, model_name, integrator, rng_seed, custom_fn):

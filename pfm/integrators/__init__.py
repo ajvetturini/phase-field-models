@@ -1,1 +1,2 @@
 from .explicit_euler import ExplicitEuler
+from .semi_implicit import SemiImplicitSpectral

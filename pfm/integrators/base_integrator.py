@@ -8,9 +8,6 @@ import jax.numpy as jnp
 
 def make_laplacian_fft(dim, dx):
     def laplacian_fft_single(phi_single):
-        # FFT-based Laplacian for a single species
-        # phi_single shape: (Nx,) or (Nx, Ny) or (Nx, Ny, Nz)
-
         # Compute FFT
         phi_fft = jnp.fft.fftn(phi_single)
 
@@ -29,7 +26,7 @@ def make_laplacian_fft(dim, dx):
         # Apply and transform back
         return jnp.fft.ifftn(-k_squared * phi_fft).real
 
-    # Map over the species dimension (axis 0)
+    # Map over the species dimension
     return jax.jit(jax.vmap(laplacian_fft_single))
 
 def make_laplacian_roll(dim, dx):
