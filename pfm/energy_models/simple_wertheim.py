@@ -4,8 +4,6 @@ import jax
 from functools import partial
 from pfm.utils.delta import Delta
 
-# TODO: Convert the _X and der_bulk to be better handled w/ float32 using clips
-
 class SimpleWertheim(FreeEnergyModel):
 
     def __init__(self, config):
@@ -40,7 +38,6 @@ class SimpleWertheim(FreeEnergyModel):
     @partial(jax.jit, static_argnums=(0,))
     def bulk_free_energy(self, rho_species):
         r0 = rho_species[0]  # Only 1 species in SimpleWertheim
-        #r0 = jnp.sum(r0)  # Sum up
         rho_sqr = r0 * r0  # Calculate square once
 
         # Reference energy:
