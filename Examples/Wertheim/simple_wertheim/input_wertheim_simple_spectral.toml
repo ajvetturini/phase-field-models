@@ -1,14 +1,14 @@
 steps = 1e8
-print_every = 1e4
-print_trajectory_every = 1e4
+print_every = 1e6
+print_trajectory_every = 1e6
 N = 512
 dt = 1e-5
 initial_density = 5e-5
 free_energy = "simple_wertheim"
-integrator = "euler"
+integrator = "spectral"
 dx = 10
 k = 1e6
-write_path = './jax/'
+write_path = './jax_spectral/'
 use_autodiff = true
 interface_scalar = 2.0
 
