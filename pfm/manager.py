@@ -400,8 +400,39 @@ class PINNManager:
         else:
             trained_params = train_ac(self._config, self._network, self._free_energy_model, self._system, self.N_species)
 
-        raise NotImplementedError('NOT YET FINISHED')
-        # We should apply the trained params + output data prior to return
+        # Apply the trained params + output result of Cahn-Hilliard for final "time" along with a trajectory:
+        t_final = 1.0
+        x_bounds = [0.0, 1.0]
+        y_bounds = [0.0, 1.0]
+        grid_res = self.init_field.shape[1]  # Assuming square grid, Nx = Ny = grid_res
+        x_space = jnp.linspace(x_bounds[0], x_bounds[1], grid_res)
+        y_space = jnp.linspace(y_bounds[0], y_bounds[1], grid_res)
+        xx, yy = jnp.meshgrid(x_space, y_space)
+        tt = jnp.ones_like(xx) * t_final
+
+        # Flatten the grid and stack to create model inputs (N, 3) for (x, y, t)
+        xyt_eval = jnp.stack([xx.flatten(), yy.flatten(), tt.flatten()], axis=-1)
+
+        # 2. Apply the model with the trained parameters
+        # The model will output predictions for [rho_1..N, mu_1..N]
+        predictions = self._network.apply(trained_params, xyt_eval)
+
+        # 3. Extract and reshape the concentration (rho)
+        rho_all_species = predictions[:, :self.N_species]
+        rho_flat = rho_all_species[:, 0]
+        rho_final_grid = rho_flat.reshape((grid_res, grid_res))
+
+        # Write out final grid:
+        solution_grid_np = np.array(rho_final_grid)
+        dim_string = f'{grid_res}x{grid_res}'
+        header_str = f'# normalized_time = f{t_final}, species = 0, size = ' + dim_string + '\n'
+        outpath = os.path.join(self._write_path, "solution_species_0.dat")
+        with open(outpath, 'w') as file:
+            file.write(header_str)
+            for row in solution_grid_np:
+                row_as_string = ' '.join(map(str, row))
+                file.write(row_as_string + '\n')
+
 
 
 class PINNOptimizer:
