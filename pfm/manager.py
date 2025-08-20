@@ -2,8 +2,10 @@ import numpy as np
 import toml
 import jax
 import jax.numpy as jnp
+from flax import linen as nn
 from pfm.energy_models import Landau, SimpleWertheim, GenericWertheim, SalehWertheim
 from pfm.integrators import ExplicitEuler, SemiImplicitSpectral
+from pfm.pinn import MLP, train_ch, train_ac
 from pfm.phase_field_models import CahnHilliard, AllenCahn
 import os
 from functools import partial
@@ -38,9 +40,9 @@ class SimulationManager:
         # Setup the free energy model, integrator, and system based on if jax is being used:
         # The custom_energy and custom_initial_conditions might be None (which is fine) but are still passed in
         # The use of the TOML config dictates the use of these custom functions
-        self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'), custom_energy)
+        self._free_energy_model = _read_in_energy_model(config, config.get('free_energy'), custom_energy)
         self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator', 'euler'))
-        self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
+        self._system = _read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
                                            self._integrator, self._rng_seed, custom_fn=custom_initial_condition)
         self._traj_printed = 0
         self._trajectories = []
@@ -56,22 +58,6 @@ class SimulationManager:
                 traj.close()
 
     @staticmethod
-    def _read_in_energy_model(config, free_energy, CustomEnergy):
-        if free_energy.lower() == 'landau':
-            return Landau(config)
-        elif free_energy.lower() == 'simple_wertheim':
-            return SimpleWertheim(config)
-        elif free_energy.lower() == 'generic_wertheim':
-            return GenericWertheim(config)
-        elif free_energy.lower() == 'saleh' or free_energy.lower() == 'saleh_wertheim':
-            return SalehWertheim(config)
-        elif free_energy.lower() == 'custom':
-            return CustomEnergy(config)
-
-        else:
-            raise Exception(f'Invalid free_energy specified: {free_energy}, valid options are: landau, custom')
-
-    @staticmethod
     def _read_in_integrator(model, config, integrator_name):
         if integrator_name.lower() == 'euler':
             return ExplicitEuler(model, config)
@@ -79,15 +65,6 @@ class SimulationManager:
             return SemiImplicitSpectral(model, config)
         else:
             raise Exception('Invalid integrator scheme, valid options are: euler, semi_implicit (or spectral), ')
-
-    @staticmethod
-    def _read_in_model(model, config, model_name, integrator, rng_seed, custom_fn):
-        if model_name.lower() == 'ch':
-            return CahnHilliard(model, config, integrator, rng_seed, custom_fn=custom_fn)
-        elif model_name.lower() == 'ac':
-            return AllenCahn(model, config, integrator, rng_seed, custom_fn=custom_fn)
-        else:
-            raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ac (Allen-Cahn)')
 
     def _print_current_state(self, prefix, t, rho=None):
         print(f"{prefix} state at time {t}")
@@ -127,9 +104,9 @@ class SimulationManager:
 
     def _run_cpu(self):
         """ Main function of the Simulation Manager, runs the simulation. This is a "slow run" which does not leverage
-                 jax outside of jit-ting the process. This should result in similar to CPU based C++ implementation, but is
-                 not well-suited for very large (1e9-1e10) timestep simulations
-                 """
+         jax outside of jit-ting the process. This should result in similar to CPU based C++ implementation
+         (but only for flaot32), but is not well-suited for very large (1e9-1e10) timestep simulations
+         """
         if self._steps > 1e6:
             print('WARNING: CPU based phase field model will run quite slowly!')
         # Setup simulation trajectory tracking:
@@ -368,6 +345,104 @@ class SimulationManager:
         jax.profiler.stop_trace()
         return rho_n
 
+class PINNManager:
+    """ Read in TOML + Solve Cahn-Hilliard / Allen-Cahn via a PINN-based simulation. """
+
+    def __init__(self, config, custom_energy=None, custom_initial_condition=None, custom_PINN=None):
+        self._config = config
+        self._write_path = config.get('write_path', r'./')  # Assumes same directory writing by default
+
+        # Set RNG:
+        self._rng_seed = int(config.get('steps', np.random.randint(1000000)))
+        if 'steps' not in config:
+            print(f'RNG seed not specified, using seed: {self._rng_seed}')
+
+        # Setup the free energy model, integrator, and system based on if jax is being used:
+        # The custom_energy and custom_initial_conditions might be None (which is fine) but are still passed in
+        # The use of the TOML config dictates the use of these custom functions
+        self._free_energy_model = _read_in_energy_model(config, config.get('free_energy'), custom_energy)
+        # Note: We can simply "pass in" the PINN below, as we are really just grabbing the initial condition for
+        # code reuse
+        model_type = config.get('model', 'ch').lower()
+        self.model_type = model_type
+        self._system = _read_in_model(self._free_energy_model, config, model_type,
+                                      None, self._rng_seed, custom_fn=custom_initial_condition)
+        initial_order_params = self._system.get_initial_condition()  # (N_species, Nx, Ny, ...)
+        N_species = initial_order_params.shape[0]
+        self.N_species = N_species
+        if custom_PINN is not None:
+            self._network = custom_PINN
+        else:
+            self._network = self._read_in_network(self._system.dim, N_species, config)
+
+        # Store init data from system:
+        name = 'init_' + self._system.field_name
+        self.init_field = getattr(self._system, name)
+
+    @staticmethod
+    def _read_in_network(dimensions, n_species, config):
+        """ Reads in a specified PINN to replace the numerical integrator """
+        network_type = config.get('network', 'mlp').lower()
+        output_dimension = 2 * n_species  # The output must be 2 * n_species for (rho_1, ..., mu_1, ...)
+        if network_type.lower() == 'mlp':
+            layers = config.get('network_size', [64, 64, 64])
+            activation = config.get('activation_function', 'tanh')
+            activation_func = _read_in_activation_function(activation)
+            return MLP(dimensions+1, output_dimension, layers, activation_func)
+
+        else:
+            raise Exception('Invalid network type specified, valid options are: `mlp_fourier`, ...')
+
+    def solve(self):
+        """ Trains the network to solve the Cahn-Hilliard or Allen-Cahn equation via a PINN approach. """
+        if self.model_type == 'ch':
+            trained_params = train_ch(self._config, self._network, self._free_energy_model, self._system, self.N_species)
+        else:
+            trained_params = train_ac(self._config, self._network, self._free_energy_model, self._system, self.N_species)
+
+        raise NotImplementedError('NOT YET FINISHED')
+        # We should apply the trained params + output data prior to return
+
+
+class PINNOptimizer:
+    """ Perform optimization of a Cahn-Hilliard based parameter to target specific surface-tension of LIPS, this
+    is just a placeholder currently.
+    """
+    pass
+
+
+def _read_in_energy_model(config, free_energy, CustomEnergy):
+    if free_energy.lower() == 'landau':
+        return Landau(config)
+    elif free_energy.lower() == 'simple_wertheim':
+        return SimpleWertheim(config)
+    elif free_energy.lower() == 'generic_wertheim':
+        return GenericWertheim(config)
+    elif free_energy.lower() == 'saleh' or free_energy.lower() == 'saleh_wertheim':
+        return SalehWertheim(config)
+    elif free_energy.lower() == 'custom':
+        return CustomEnergy(config)
+
+    else:
+        raise Exception(f'Invalid free_energy specified: {free_energy}, valid options are: landau, custom')
+
+
+def _read_in_model(model, config, model_name, integrator, rng_seed, custom_fn):
+    if model_name.lower() == 'ch':
+        return CahnHilliard(model, config, integrator, rng_seed, custom_fn=custom_fn)
+    elif model_name.lower() == 'ac':
+        return AllenCahn(model, config, integrator, rng_seed, custom_fn=custom_fn)
+    else:
+        raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ac (Allen-Cahn)')
+
+def _read_in_activation_function(activation_name: str):
+    """ Returns the flax activation function based on a string name """
+    if activation_name == 'tanh':
+        return nn.tanh
+    elif activation_name == 'relu':
+        return nn.relu
+    else:
+        raise Exception('ERROR: Invalid activation function name')
 
 if __name__ == '__main__':
     c = toml.load(r'../Examples/Landau/jax_long/input_magnetic_film.toml')

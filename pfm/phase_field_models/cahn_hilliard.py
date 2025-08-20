@@ -25,41 +25,9 @@ class CahnHilliard(PhaseFieldModel):
     def evolve(self, rho):
         return self.integrator.evolve(rho)
 
-
-    '''@partial(jax.jit, static_argnums=(0,))
-    def average_free_energy(self, rho: jnp.ndarray) -> jnp.ndarray:
-        """ Calculates the per-bin average free energy of the order parameter rho """
-        # Calculate interfacial contribution (vectorized)
-        all_gradients = self.gradient(rho)
-
-        # Sum of squares of gradient components (sum over 'dim' axis, assuming it's axis 1)
-        sum_sq_grad = jnp.sum(all_gradients ** 2, axis=1)  # Shape: (N_species, Nx, Ny, ...)
-        total_interfacial_density = self.k_laplacian * jnp.sum(sum_sq_grad, axis=0)
-
-        bin_indices = self.integrator.bin_indices
-        local_rhos_per_bin = self.integrator.get_local_rho_species(rho, bin_indices)  # Shape: (N_bins, N_species)
-        Ns = self.free_energy_model.N_species()
-        N_bins = local_rhos_per_bin.shape[0]
-
-        # Compute dF/dρ per species and bin
-        def bulk_term_per_bin(local_rho):
-            return self.free_energy_model.bulk_free_energy(local_rho)
-
-        bulk_term_scalar = jax.vmap(bulk_term_per_bin)(local_rhos_per_bin)  # vmap over bins
-        bulk_density = bulk_term_scalar.reshape(rho.shape[1:])  # Re-shape back
-
-        # Combine contributions and multiply by volume of bin
-        total_free_energy_density = bulk_density + total_interfacial_density  # Shape: (Nx, Ny, ...)
-        total_fe = jnp.sum(total_free_energy_density) * self.V_bin
-
-        # Get average energy over the number of bins:
-        avg_fe = total_fe / N_bins
-        return avg_fe
-'''
-
     @partial(jax.jit, static_argnums=(0,))
     def average_free_energy(self, rho: jnp.ndarray) -> jnp.ndarray:
-        """Average free energy per bin (JAX version, bin-centric)."""
+        """ Average free energy per bin """
         # Gradients: shape (N_species, N_dim, Nx, Ny, ...)
         all_gradients = self.gradient(rho)
 

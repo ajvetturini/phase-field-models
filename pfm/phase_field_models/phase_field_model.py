@@ -155,6 +155,12 @@ class PhaseFieldModel:
         setattr(self, f"init_{self.field_name}", jnp.array(initial_field, dtype=dtype))
         self._grad_diff_method = config.get('pfm_diff_method', 'central')  # Forward or central difference in gradient
 
+    def get_initial_condition(self):
+        """
+        Returns the initial condition of the order parameter field.
+        """
+        return getattr(self, f"init_{self.field_name}")
+
     @partial(jax.jit, static_argnums=(0,))
     def gradient(self, field: jnp.ndarray) -> jnp.ndarray:
         grads = []
