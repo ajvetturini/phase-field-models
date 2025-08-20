@@ -400,6 +400,15 @@ class PINNManager:
         else:
             trained_params = train_ac(self._config, self._network, self._free_energy_model, self._system, self.N_species)
 
+        # First export the final frame:
+        self._export_final_frame_all_species(trained_params)
+
+        # Export a video of each:
+        num_frames = self._config.get('num_frames', 100)
+        self._export_trajectories(trained_params, 1.0, num_frames)  # Animation -> t_final of 1.0 (normalied)
+
+    def _export_final_frame_all_species(self, trained_params):
+        """ Exports a final .dat frame of each N species """
         # Apply the trained params + output result of Cahn-Hilliard for final "time" along with a trajectory:
         t_final = 1.0
         x_bounds = [0.0, 1.0]
@@ -419,21 +428,61 @@ class PINNManager:
 
         # 3. Extract and reshape the concentration (rho)
         rho_all_species = predictions[:, :self.N_species]
-        rho_flat = rho_all_species[:, 0]
-        rho_final_grid = rho_flat.reshape((grid_res, grid_res))
 
-        # Write out final grid:
-        solution_grid_np = np.array(rho_final_grid)
+        for i in range(self.N_species):
+            # Select the data for the current species 'i'
+            rho_flat = rho_all_species[:, i]
+            rho_final_grid = rho_flat.reshape((grid_res, grid_res))
+
+            # Write out final grid:
+            solution_grid_np = np.array(rho_final_grid)
+            dim_string = f'{grid_res}x{grid_res}'
+            header_str = f'# normalized_time = {t_final}, species = {i}, size = ' + dim_string + '\n'
+            outpath = os.path.join(self._write_path, f"solution_species_{i}.dat")
+            with open(outpath, 'w') as file:
+                file.write(header_str)
+                for row in solution_grid_np:
+                    row_as_string = ' '.join(map(str, row))
+                    file.write(row_as_string + '\n')
+
+    def _export_trajectories(self, trained_params, t_final, num_frames):
+        """ Exports trajectory files using the trained network parameters for each species """
+        time_steps = np.linspace(0.0, t_final, num=100)
+
+        # Create basic objects:
+        x_bounds = [0.0, 1.0]
+        y_bounds = [0.0, 1.0]
+        grid_res = self.init_field.shape[1]  # Assuming square grid, Nx = Ny = grid_res
+        x_space = jnp.linspace(x_bounds[0], x_bounds[1], grid_res)
+        y_space = jnp.linspace(y_bounds[0], y_bounds[1], grid_res)
         dim_string = f'{grid_res}x{grid_res}'
-        header_str = f'# normalized_time = f{t_final}, species = 0, size = ' + dim_string + '\n'
-        outpath = os.path.join(self._write_path, "solution_species_0.dat")
-        with open(outpath, 'w') as file:
-            file.write(header_str)
-            for row in solution_grid_np:
-                row_as_string = ' '.join(map(str, row))
-                file.write(row_as_string + '\n')
+        all_species_to_export = {i: [] for i in range(self.N_species)}
 
+        for i, t in enumerate(time_steps):
+            xx, yy = jnp.meshgrid(x_space, y_space)
+            tt = jnp.ones_like(xx) * t  # For each time-step
+            xyt_eval = jnp.stack([xx.flatten(), yy.flatten(), tt.flatten()], axis=-1)
 
+            predictions = self._network.apply(trained_params, xyt_eval)
+
+            # Now extract rho for each species:
+            for n in range(self.N_species):
+                rho_flat = predictions[:, n]  # Assuming single species
+                rho_grid = rho_flat.reshape((grid_res, grid_res))
+                next_frame_string = f'# normalized_time = {t}, species = {n}, size = ' + dim_string + '\n'
+                all_species_to_export[n].append((next_frame_string, rho_grid))
+
+        # Now we will write out the trajectory files for each N-species from the dict:
+        for species, frames in all_species_to_export.items():
+            outpath = os.path.join(self._write_path, f"trajectory_species_{species}.dat")
+            with open(outpath, 'w') as file:
+                for f in frames:
+                    header_str, rho_grid = f
+                    file.write(header_str)
+
+                    for row in rho_grid:
+                        row_as_string = ' '.join(map(str, row))
+                        file.write(row_as_string + '\n')
 
 class PINNOptimizer:
     """ Perform optimization of a Cahn-Hilliard based parameter to target specific surface-tension of LIPS, this
