@@ -70,7 +70,15 @@ def animate(filepath: str, smoothen_animation: bool = True, interpolation_factor
     interpolated_frames.append(smoothed_frames[-1].reshape(N, N))
 
     if not interpolated_frames or not smoothen_animation:
-        interpolated_frames = all_frames  # Reset back to all_frames
+        fixed_frames = []
+        for f in all_frames:
+            if len(f.shape) == 1:
+                f = f.reshape(N, N)
+                fixed_frames.append(f)
+            else:
+                fixed_frames = all_frames
+                break
+        interpolated_frames = fixed_frames  # Reset back to all_frames
         
 
     norm = colors.Normalize(vmin=np.min(interpolated_frames), vmax=np.max(interpolated_frames))
