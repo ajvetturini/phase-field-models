@@ -58,9 +58,11 @@ class Integrator:
         if isinstance(self._float_type, str):
             if self._float_type == 'float64':  # Only valid option for float_type is float64
                 self._float_type = jnp.float64
+            elif self._float_type == 'float32':
+                self._float_type = jnp.float32
             else:
-                raise Exception(f'Invalid float_type specified: {self._float_type} | Valid options are `float64`. Do '
-                                f'not specify this field in the config.toml if you want to use float32 (default).')
+                raise Exception(f'Invalid float_type specified: {self._float_type} | Valid options are `float64` and '
+                                f'`float_32`.')
 
         if self._dim <= 0 or self._dim > 3:
             raise Exception('Unable to proceed, package only supports periodic 1D - 3D')

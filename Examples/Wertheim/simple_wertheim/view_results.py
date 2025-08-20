@@ -1,12 +1,11 @@
 from pfm.analysis import plot_all_densities, animate, plot_all_energies
 
-#plot_all_densities([r'./cuda/init_0.dat', r'./cuda/last_0.dat', ], [{}, {}])
-#animate(r'./cuda/trajectory_0.dat',)
+#plot_all_densities([r'./jax_explicit_1e8/last_0.dat', r'./jax_spectral/last_0.dat', ], [{}, {}])
+#plot_all_energies([r'./jax_explicit_1e8/energy.dat', r'./jax_spectral/energy.dat', r'./cuda/energy_cuda.dat', ])
+animate(r'./cuda/trajectory_0.dat', interval=100)
+animate(r'./jax_explicit_1e8/trajectory_species_0.dat', interval=100)
 
-labels = ['Autodiff (F64)', 'JAX (F32)', 'CUDA (F64)', ]
-#plot_all_energies([r'./jax/energy_autodiff.dat', r'./jax/energy_float32.dat', r'./cuda/energy_cuda.dat'], labels=labels)
-animate(r'./jax/trajectory_autodiff.dat', export=True, interval=500)
-#animate(r'./jax/trajectory_species_0_float32.dat', export=True, interval=500)
-animate(r'./cuda/trajectory_0.dat', export=True, interval=500)
+#nimate(r'./jax_explicit_1e7/trajectory_species_0.dat', export=False, interval=500)
+
 
 

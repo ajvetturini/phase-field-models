@@ -55,6 +55,7 @@ def custom_initial_condition(init_phi):
 
     return init_phi
 
+
 # NOTES
 # Overall, this is a SHORT simulation! We are looking at the early separation (first few hundred timesteps)
 # The system achieves a minimum relatively quickly (within few thousand steps), so if you run a system

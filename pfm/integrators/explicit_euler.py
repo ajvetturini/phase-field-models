@@ -21,7 +21,7 @@ class ExplicitEuler(Integrator):
             print(f'Stability term: {lhs} | This term should be << 1 or else Explicit Euler will be unstable.')
 
         # In the init we set the evolve function, allowing us to easily change what data gets transferred to individual
-        # energy models:
+        # energy phase_field_models:
         if config.get('model', 'ch').lower() == 'ch':
             self._evolve_fn = self._evolve_cahn_hilliard
         elif config.get('model', 'ac').lower() == 'ac':

@@ -67,7 +67,7 @@ if __name__ == '__main__':
     import time
     import numpy as np
     start = time.time()
-    r0 = np.loadtxt('/home/aj/GitHub/phase-field-models/Examples/Wertheim/simple_wertheim/jax/init_0.dat')
+    r0 = np.loadtxt('/home/aj/GitHub/phase-field-phase_field_models/Examples/Wertheim/simple_wertheim/jax/init_0.dat')
     _RUN(r0, 100000)
 
     end = time.time() - start

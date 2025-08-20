@@ -9,6 +9,7 @@ model = 'CH'
 use_autodiff = false
 interface_scalar = 2.0
 initial_density = 0.01
+float_type = "float32"
 
 [landau]
 epsilon = 0.9

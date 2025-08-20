@@ -4,12 +4,12 @@ import numpy as np
 def plot_density(fp: str, **kwargs):
     """Plots a single file's worth of data (e.g., a frame of the data)."""
     data = np.loadtxt(fp)
-    plt.figure()                      # Create a new figure
-    plt.title(fp)                     # Use filename as the title
-    im = plt.imshow(data, **kwargs)   # Display data as a heatmap
-    if kwargs.get('constant_range', True):
+    plt.figure()
+    plt.title(fp)
+    im = plt.imshow(data, **kwargs)
+    if kwargs.get('constant_range', False):
         plt.clim(-1, 1)  # Set range
-    plt.colorbar(im, )                  # Add colorbar
+    plt.colorbar(im, )
     plt.show()
 
 def plot_all_densities(list_of_fps: list, list_of_kwargs: list):

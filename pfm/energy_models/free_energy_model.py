@@ -1,5 +1,5 @@
 """
-The base FreeEnergyModel class that will pull in the relevent energy models (e.g., landau) to construct a total
+The base FreeEnergyModel class that will pull in the relevent energy phase_field_models (e.g., landau) to construct a total
 FreeEnergyModel used in Cahn Hilliard simulations.
 """
 import jax.numpy as jnp

@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 from pfm.energy_models import Landau, SimpleWertheim, GenericWertheim, SalehWertheim
 from pfm.integrators import ExplicitEuler, SemiImplicitSpectral
-from pfm.models import CahnHilliard, AllenCahn
+from pfm.phase_field_models import CahnHilliard, AllenCahn
 import os
 from functools import partial
 import time
@@ -114,11 +114,11 @@ class SimulationManager:
         return False
 
     def average_free_energy(self, rho=None):
-        """ Cahn-Hilliard (or Allen-Cahn when implemented) will simply calculate this based on stored rho values """
+        """ Cahn-Hilliard (or Allen-Cahn) will simply calculate this based on stored rho values """
         return self._system.average_free_energy(rho)
 
     def average_mass(self, rho=None):
-        """ Cahn-Hilliard (or Allen-Cahn when implemented) will simply calculate this based on stored rho values """
+        """ Cahn-Hilliard (or Allen-Cahn) will simply calculate this based on stored rho values """
         return self._system.average_mass(rho)
 
     """

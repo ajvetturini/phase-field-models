@@ -8,7 +8,8 @@ class Landau(FreeEnergyModel):
     def __init__(self, config):
         super().__init__(config)  # First init the relevent FreeEnergyModel config options
         self._energy_config = config.get('landau')
-        self._epsilon = jnp.array(self._energy_config.get('epsilon', 1.0), dtype=jnp.float64)
+        float_type = jnp.float64 if config.get('float_type', 'float32') == 'float64' else jnp.float32
+        self._epsilon = jnp.array(self._energy_config.get('epsilon', 1.0), dtype=float_type)
 
         if self._inverse_scaling_factor != 1.0:
             raise Exception('Landau free energy model does not support distance_scaling_factors from 1.0')

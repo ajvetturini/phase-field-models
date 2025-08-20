@@ -1,5 +1,5 @@
 """
-The Delta is something like an association strength / bonding volume in the Wertheim-based models
+The Delta is something like an association strength / bonding volume in the Wertheim-based phase_field_models
 There are specific values that can be over-written / specified via config. The defaults here are the same as
 in https://github.com/lorenzo-rovigatti/cahn-hilliard/blob/main/src/utils/Delta.cpp
 """

@@ -35,7 +35,7 @@ class SemiImplicitSpectral(Integrator):
                 print("Using autodiff for bulk energy derivative")
 
         # In the init we set the evolve function, allowing us to easily change what data gets transferred to individual
-        # energy models:
+        # energy phase_field_models:
         if config.get('model', 'ch').lower() == 'ch':
             self._evolve_fn = self._evolve_cahn_hilliard
         elif config.get('model', 'ac').lower() == 'ac':
