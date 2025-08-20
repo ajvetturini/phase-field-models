@@ -393,19 +393,24 @@ class PINNManager:
         else:
             raise Exception('Invalid network type specified, valid options are: `mlp_fourier`, ...')
 
-    def solve(self):
+    def solve(self, write_trajectory: bool = True):
         """ Trains the network to solve the Cahn-Hilliard or Allen-Cahn equation via a PINN approach. """
+        start = time.time()
         if self.model_type == 'ch':
             trained_params = train_ch(self._config, self._network, self._free_energy_model, self._system, self.N_species)
         else:
             trained_params = train_ac(self._config, self._network, self._free_energy_model, self._system, self.N_species)
+        end = time.time()
+        print(f'Training completed in {end - start:.2f} seconds.')
 
         # First export the final frame:
         self._export_final_frame_all_species(trained_params)
 
         # Export a video of each:
-        num_frames = self._config.get('num_frames', 100)
-        self._export_trajectories(trained_params, 1.0, num_frames)  # Animation -> t_final of 1.0 (normalied)
+        if write_trajectory:
+            print('NOTE: Writing trajectory file may take some time, please be patient...')
+            num_frames = self._config.get('num_frames', 100)
+            self._export_trajectories(trained_params, 1.0, num_frames)  # Animation -> t_final of 1.0 (normalied)
 
     def _export_final_frame_all_species(self, trained_params):
         """ Exports a final .dat frame of each N species """
