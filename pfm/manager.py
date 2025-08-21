@@ -392,16 +392,24 @@ class PINNManager:
     @staticmethod
     def _read_in_network(dimensions, n_species, config):
         """ Reads in a specified PINN to replace the numerical integrator """
-        network_type = config.get('network', 'mlp').lower()
+        network_type = config.get('network', 'mlp_fourier').lower()
         output_dimension = 2 * n_species  # The output must be 2 * n_species for (rho_1, ..., mu_1, ...)
         if network_type.lower() == 'mlp':
-            layers = config.get('network_size', [64, 64, 64])
+            layers = config.get('network_size', [128, 128, 128, 128])
             activation = config.get('activation_function', 'tanh')
             activation_func = _read_in_activation_function(activation)
-            return MLP(dimensions+1, output_dimension, layers, activation_func)
+            return MLP(dimensions+1, output_dimension, layers, activation_func, False)
+
+        elif network_type.lower() == 'mlp_fourier':
+            layers = config.get('network_size', [128, 128, 128, 128])
+            activation = config.get('activation_function', 'tanh')
+            activation_func = _read_in_activation_function(activation)
+            fourier_dim = config.get('fourier_feature_dim', 256)
+            fourier_scale = config.get('fourier_feature_scale', 10.0)
+            return MLP(dimensions + 1, output_dimension, layers, activation_func, True, fourier_dim, fourier_scale)
 
         else:
-            raise Exception('Invalid network type specified, valid options are: `mlp_fourier`, ...')
+            raise Exception('Invalid network type specified, valid options are: `mlp`, `mlp_fourier`, ...')
 
     def solve(self, write_trajectory: bool = True):
         """ Trains the network to solve the Cahn-Hilliard or Allen-Cahn equation via a PINN approach. """
