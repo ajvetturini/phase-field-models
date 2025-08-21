@@ -12,4 +12,5 @@ files1 = [r'solution_species_0.dat']
 kwargs_list = [{"cmap": "plasma"}]
 
 plot_all_densities(files1, kwargs_list)
+animate('trajectory_species_0.dat', smoothen_animation=False)
 

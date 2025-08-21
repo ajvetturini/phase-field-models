@@ -368,6 +368,7 @@ class PINNManager:
         self._system = _read_in_model(self._free_energy_model, config, model_type,
                                       None, self._rng_seed, custom_fn=custom_initial_condition)
         initial_order_params = self._system.get_initial_condition()  # (N_species, Nx, Ny, ...)
+        self.initial_condition = initial_order_params
         N_species = initial_order_params.shape[0]
         self.N_species = N_species
         if custom_PINN is not None:
@@ -396,10 +397,14 @@ class PINNManager:
     def solve(self, write_trajectory: bool = True):
         """ Trains the network to solve the Cahn-Hilliard or Allen-Cahn equation via a PINN approach. """
         start = time.time()
+        assert len(self.initial_condition.shape) in [3], 'ERROR: PINN only setup for 2D problems (N_species,' \
+                                                            ' Nx, Ny) as of now.'
         if self.model_type == 'ch':
-            trained_params = train_ch(self._config, self._network, self._free_energy_model, self._system, self.N_species)
+            trained_params = train_ch(self._config, self._network, self._free_energy_model, self._system,
+                                      self.N_species, self.initial_condition)
         else:
-            trained_params = train_ac(self._config, self._network, self._free_energy_model, self._system, self.N_species)
+            trained_params = train_ac(self._config, self._network, self._free_energy_model, self._system,
+                                      self.N_species, self.initial_condition)
         end = time.time()
         print(f'Training completed in {end - start:.2f} seconds.')
 
