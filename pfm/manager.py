@@ -396,13 +396,13 @@ class PINNManager:
         output_dimension = 2 * n_species  # The output must be 2 * n_species for (rho_1, ..., mu_1, ...)
         if network_type.lower() == 'mlp':
             layers = config.get('network_size', [128, 128, 128, 128])
-            activation = config.get('activation_function', 'tanh')
-            activation_func = _read_in_activation_function(activation)
+            activation = config.get('activation_function', 'swish')
+            activation_func = _read_in_activation_function(activation.lower())
             return MLP(dimensions+1, output_dimension, layers, activation_func, False)
 
         elif network_type.lower() == 'mlp_fourier':
             layers = config.get('network_size', [128, 128, 128, 128])
-            activation = config.get('activation_function', 'tanh')
+            activation = config.get('activation_function', 'swish')
             activation_func = _read_in_activation_function(activation)
             fourier_dim = config.get('fourier_feature_dim', 64)
             fourier_scale = config.get('fourier_feature_scale', 1.0)
@@ -548,6 +548,10 @@ def _read_in_activation_function(activation_name: str):
         return nn.tanh
     elif activation_name == 'relu':
         return nn.relu
+    elif activation_name == 'swish':
+        return nn.swish
+    elif activation_name == 'gelu':
+        return nn.gelu
     else:
         raise Exception('ERROR: Invalid activation function name')
 

@@ -18,7 +18,7 @@ def _cahn_hilliard_residual(model, params, xyt, free_energy_model, interface_sca
     def mu_fn(xyt_in):
         return rho_and_mu_fn(xyt_in)[1]
 
-    def single_residual(xyt_in):
+    """def single_residual(xyt_in):
         # rho and its derivatives
         rho_val = rho_fn(xyt_in)  # Shape: (n_species,)
         J_rho = jax.jacfwd(rho_fn)(xyt_in)  # Shape: (n_species, 3) for (x,y,t)
@@ -32,18 +32,37 @@ def _cahn_hilliard_residual(model, params, xyt, free_energy_model, interface_sca
         # mu and its derivatives
         mu_val = mu_fn(xyt_in)  # Shape: (n_species,)
         hessian_mu = jax.hessian(mu_fn)(xyt_in)  # Shape: (n_species, 3, 3)
-        # lap_mu = jnp.trace(hessian_mu[..., :-1, :-1], axis1=-2, axis2=-1)
         lap_mu = hessian_mu[:, 0, 0] + hessian_mu[:, 1, 1]  # Shape: (n_species,)
 
         # Residual 1: R₁ = ∂ρ/∂t - ∇²μ
         residual_1 = rho_t - lap_mu
 
         # Residual 2: R₂ = μ - (df/dρ - κ ∇²ρ)
-        #bulk_derivative = free_energy_model.der_bulk_free_energy(rho_val)
         bulk_derivative = free_energy_model.der_bulk_free_energy_pointwise(rho_val)
         residual_2 = mu_val - (bulk_derivative - (interface_scalar * kappa * lap_rho))
 
         # Concatenate residuals for all species
+        return jnp.concatenate([residual_1, residual_2], axis=-1)"""
+
+    def single_residual(xyt_in):
+        # Get values and derivatives
+        rho_val = rho_fn(xyt_in)
+        J_rho = jax.jacfwd(rho_fn)(xyt_in)
+        rho_t = J_rho[..., -1]
+        hessian_rho = jax.hessian(rho_fn)(xyt_in)
+        lap_rho = hessian_rho[:, 0, 0] + hessian_rho[:, 1, 1]
+
+        mu_val = mu_fn(xyt_in)
+        hessian_mu = jax.hessian(mu_fn)(xyt_in)
+        lap_mu = hessian_mu[:, 0, 0] + hessian_mu[:, 1, 1]
+
+        # PDE residuals
+        residual_1 = rho_t - lap_mu
+
+        # Get bulk derivative
+        bulk_derivative = free_energy_model.der_bulk_free_energy_pointwise(rho_val)
+        residual_2 = mu_val - (bulk_derivative - (interface_scalar * kappa * lap_rho))
+
         return jnp.concatenate([residual_1, residual_2], axis=-1)
 
     # Vmap over the entire batch of collocation points
@@ -70,7 +89,7 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
         decay_rate=0.95,
         end_value=1e-6
     )
-    optimizer = optax.adamw(lr_schedule, weight_decay=1e-4)
+    optimizer = optax.adamw(lr_schedule, weight_decay=1e-5)
     opt_state = optimizer.init(params)
 
     # Setup positional bounds:
@@ -169,8 +188,8 @@ def _read_in_config(config):
         'weight_decay': train_config.get('weight_decay', 0.0),
         'log_frequency': train_config.get('log_frequency', 100),
         'seed': train_config.get('seed', 8),
-        'n_collocation': train_config.get('n_collocation', 4096),
-        'n_boundary': train_config.get('n_boundary', 4096),
+        'n_collocation': train_config.get('n_collocation', 8192),
+        'n_boundary': train_config.get('n_boundary', 1024),
         'w_ic': train_config.get('w_ic', 100.0),  # Initial condition weighting for composite loss function
         'w_bc': train_config.get('w_bc', 10.0),   # Boundary condition weight for composite loss function
     }
