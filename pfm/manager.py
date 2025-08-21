@@ -402,11 +402,13 @@ class PINNManager:
 
         elif network_type.lower() == 'mlp_fourier':
             layers = config.get('network_size', [128, 128, 128, 128])
-            activation = config.get('activation_function', 'swish')
+            activation = config.get('activation_function', 'tanh')
             activation_func = _read_in_activation_function(activation)
-            fourier_dim = config.get('fourier_feature_dim', 64)
+            fourier_dim = config.get('fourier_feature_dim', 32)
             fourier_scale = config.get('fourier_feature_scale', 1.0)
-            return MLP(dimensions + 1, output_dimension, layers, activation_func, True, fourier_dim, fourier_scale)
+            trainable_b = config.get('trainable_B', False)
+            return MLP(dimensions + 1, output_dimension, layers, activation_func, True, fourier_dim, fourier_scale,
+                       trainable_b)
 
         else:
             raise Exception('Invalid network type specified, valid options are: `mlp`, `mlp_fourier`, ...')

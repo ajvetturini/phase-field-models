@@ -1,16 +1,22 @@
 from flax import linen as nn
 import jax.numpy as jnp
+import jax
 
 class FourierFeatures(nn.Module):
     output_dim: int
     scale: float = 1.0
+    trainable: bool = False  # new flag
 
     @nn.compact
     def __call__(self, x):
         # x has shape (..., input_dim)
-        B = self.param('B', nn.initializers.normal(stddev=self.scale), (x.shape[-1], self.output_dim // 2))
-
-        # Project input and apply sin/cos
+        key = self.make_rng("params")
+        shape = (x.shape[-1], self.output_dim // 2)
+        if self.trainable:
+            B = self.param("B", nn.initializers.normal(stddev=self.scale), shape)
+        else:
+            B = self.variable("constants", "B",
+                              lambda _: jax.random.normal(key, shape) * self.scale).value
         proj = x @ B
         return jnp.concatenate([jnp.sin(proj), jnp.cos(proj)], axis=-1)
 

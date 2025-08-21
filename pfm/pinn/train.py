@@ -74,7 +74,7 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
         decay_rate=0.95,
         end_value=1e-6
     )
-    optimizer = optax.adamw(lr_schedule, weight_decay=1e-5)
+    optimizer = optax.adamw(lr_schedule, weight_decay=train_params.get('weight_decay'))
     opt_state = optimizer.init(params)
 
     # Setup positional bounds:
@@ -183,10 +183,10 @@ def _read_in_config(config):
     """ Get training parameters from config """
     train_config = config.get('pinn_training_parameters', {})
     train_params = {
-        'epochs': train_config.get('epochs', 5000),
-        'batch_size': train_config.get('batch_size', 32),
+        'epochs': train_config.get('epochs', 10000),
+        # 'batch_size': train_config.get('batch_size', 32),
         'learning_rate': train_config.get('learning_rate', 0.001),
-        'weight_decay': train_config.get('weight_decay', 0.0),
+        'weight_decay': train_config.get('weight_decay', 1e-5),
         'log_frequency': train_config.get('log_frequency', 100),
         'seed': train_config.get('seed', 8),
         'n_collocation': train_config.get('n_collocation', 8192),
