@@ -5,69 +5,54 @@ import jax.numpy as jnp
 
 def _cahn_hilliard_residual(model, params, xyt, free_energy_model, interface_scalar, kappa, n_species):
     """ Residuals cacluation for training Cahn-Hilliard network """
-    def rho_and_mu_fn(xyt_in):
+    def rho_mu_fn(xyt_in):
         # Model outputs [rho_1, ..., rho_N, mu_1, ..., mu_N]
-        model_output = model.apply(params, xyt_in)
-        rho = model_output[:n_species]
-        mu = model_output[n_species:]
+        model_output = model.apply(params, xyt_in)   # shape: (2*n_species,)
+        rho, mu = jnp.split(model_output, 2)
         return rho, mu
 
-    def rho_fn(xyt_in):
-        return rho_and_mu_fn(xyt_in)[0]
+    def rho_fn(z):
+        return rho_mu_fn(z)[0]  # (n_species,)
 
-    def mu_fn(xyt_in):
-        return rho_and_mu_fn(xyt_in)[1]
+    def mu_fn(z):
+        return rho_mu_fn(z)[1]  # (n_species,)
 
-    """def single_residual(xyt_in):
-        # rho and its derivatives
-        rho_val = rho_fn(xyt_in)  # Shape: (n_species,)
-        J_rho = jax.jacfwd(rho_fn)(xyt_in)  # Shape: (n_species, 3) for (x,y,t)
-        rho_t = J_rho[..., -1]  # Time derivative: ∂ρ/∂t, shape: (n_species,)
-        hessian_rho = jax.hessian(rho_fn)(xyt_in)  # Shape: (n_species, 3, 3)
+    # Derivative builders for vector-valued functions:
+    # J_rho_fn(z) -> (n_species, 3); H_rho_fn(z) -> (n_species, 3, 3)
+    J_rho_fn = jax.jacrev(rho_fn)
+    H_rho_fn = jax.jacrev(jax.jacfwd(rho_fn))
 
-        # Spatial Hessian
-        #lap_rho = jnp.trace(hessian_rho[..., :-1, :-1], axis1=-2, axis2=-1)
-        lap_rho = hessian_rho[:, 0, 0] + hessian_rho[:, 1, 1]  # Shape: (n_species,)
+    J_mu_fn = jax.jacrev(mu_fn)
+    H_mu_fn = jax.jacrev(jax.jacfwd(mu_fn))
 
-        # mu and its derivatives
-        mu_val = mu_fn(xyt_in)  # Shape: (n_species,)
-        hessian_mu = jax.hessian(mu_fn)(xyt_in)  # Shape: (n_species, 3, 3)
-        lap_mu = hessian_mu[:, 0, 0] + hessian_mu[:, 1, 1]  # Shape: (n_species,)
+    def single_residual(z):
+        # Values
+        rho_val = rho_fn(z)     # (n_species,)
+        mu_val  = mu_fn(z)      # (n_species,)
 
-        # Residual 1: R₁ = ∂ρ/∂t - ∇²μ
-        residual_1 = rho_t - lap_mu
+        # Time derivative of rho: take Jacobian and pick t-column
+        J_rho = J_rho_fn(z)     # (n_species, 3) for (x, y, t)
+        rho_t = J_rho[:, -1]    # (n_species,)
 
-        # Residual 2: R₂ = μ - (df/dρ - κ ∇²ρ)
-        bulk_derivative = free_energy_model.der_bulk_free_energy_pointwise(rho_val)
-        residual_2 = mu_val - (bulk_derivative - (interface_scalar * kappa * lap_rho))
+        # Laplacians from Hessians: trace over spatial dims (x,y)
+        H_rho  = H_rho_fn(z)    # (n_species, 3, 3)
+        lap_rho = H_rho[:, 0, 0] + H_rho[:, 1, 1]  # (n_species,)
 
-        # Concatenate residuals for all species
-        return jnp.concatenate([residual_1, residual_2], axis=-1)"""
+        H_mu   = H_mu_fn(z)     # (n_species, 3, 3)
+        lap_mu = H_mu[:, 0, 0] + H_mu[:, 1, 1]     # (n_species,)
 
-    def single_residual(xyt_in):
-        # Get values and derivatives
-        rho_val = rho_fn(xyt_in)
-        J_rho = jax.jacfwd(rho_fn)(xyt_in)
-        rho_t = J_rho[..., -1]
-        hessian_rho = jax.hessian(rho_fn)(xyt_in)
-        lap_rho = hessian_rho[:, 0, 0] + hessian_rho[:, 1, 1]
+        # Residuals
+        # R1: ∂ρ/∂t − ∇²μ
+        r1 = rho_t - lap_mu
 
-        mu_val = mu_fn(xyt_in)
-        hessian_mu = jax.hessian(mu_fn)(xyt_in)
-        lap_mu = hessian_mu[:, 0, 0] + hessian_mu[:, 1, 1]
+        # R2: μ − (∂f/∂ρ − κ ∇²ρ)
+        bulk_deriv = free_energy_model.der_bulk_free_energy_pointwise(rho_val)  # (n_species,)
+        r2 = mu_val - (bulk_deriv - interface_scalar * kappa * lap_rho)
 
-        # PDE residuals
-        residual_1 = rho_t - lap_mu
+        return jnp.concatenate([r1, r2], axis=-1)  # (2*n_species,)
 
-        # Get bulk derivative
-        bulk_derivative = free_energy_model.der_bulk_free_energy_pointwise(rho_val)
-        residual_2 = mu_val - (bulk_derivative - (interface_scalar * kappa * lap_rho))
-
-        return jnp.concatenate([residual_1, residual_2], axis=-1)
-
-    # Vmap over the entire batch of collocation points
-    residuals = jax.vmap(single_residual)(xyt)
-    return residuals
+    # Vectorize over collocation batch
+    return jax.vmap(single_residual)(xyt)  # (batch, 2*n_species)
 
 def train_ch(config, model, free_energy_model, total_system, N_species, initial_condition):
     """ Train Cahn_Hilliard-based PINN """
@@ -103,7 +88,7 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
     y_space = jnp.linspace(y_bounds[0], y_bounds[1], initial_condition.shape[2])
     xx, yy = jnp.meshgrid(x_space, y_space)
     xy_initial = jnp.stack([xx.flatten(), yy.flatten()], axis=-1)
-    rho_initial_flat = jnp.transpose(initial_condition, (1, 2, 0)).reshape(-1, N_species)
+    rho_initial_flat = jnp.transpose(initial_condition, (1, 2, 0)).reshape(-1, N_species)  # N_bins, N_species
 
     def loss_fn(_params, _pde_pts, _ic_pts, _ic_rho, _bc_pts_pair):
         # First get residual loss:
@@ -119,11 +104,23 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
         # Enforces that rho(x_min, y, t) == rho(x_max, y, t) and
         # rho(x, y_min, t) == rho(x, y_max, t)
         bc_pts_1, bc_pts_2, bc_pts_3, bc_pts_4 = _bc_pts_pair
-        pred_1 = model.apply(_params, bc_pts_1)
-        pred_2 = model.apply(_params, bc_pts_2)
-        pred_3 = model.apply(_params, bc_pts_3)
-        pred_4 = model.apply(_params, bc_pts_4)
+
+        def gradient_fn(pts):
+            return jax.jacrev(lambda p: model.apply(_params, p)[:, :N_species])(pts)
+
+        # First ensure field parameter is periodic
+        pred_1 = model.apply(_params, bc_pts_1)[:, :N_species]
+        pred_2 = model.apply(_params, bc_pts_2)[:, :N_species]
+        pred_3 = model.apply(_params, bc_pts_3)[:, :N_species]
+        pred_4 = model.apply(_params, bc_pts_4)[:, :N_species]
         loss_bc = jnp.mean((pred_1 - pred_2) ** 2) + jnp.mean((pred_3 - pred_4) ** 2)
+
+        # Then ensure gradient of field parameter is also periodic
+        grad_1 = gradient_fn(bc_pts_1)
+        grad_2 = gradient_fn(bc_pts_2)
+        grad_3 = gradient_fn(bc_pts_3)
+        grad_4 = gradient_fn(bc_pts_4)
+        loss_bc += jnp.mean((grad_1 - grad_2) ** 2) + jnp.mean((grad_3 - grad_4) ** 2)
 
         weighted_ic_loss = w_ic * loss_ic
         weighted_bc_loss = w_bc * loss_bc
@@ -149,7 +146,7 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
     n_bc = train_params.get('n_boundary')
 
     for epoch in range(train_params.get('epochs')):
-        rng, pde_key, bc_key = jax.random.split(rng, 3)  # Resample points at each epoch for better training
+        rng, pde_key, bcx_key, bcy_key, bct_key = jax.random.split(rng, 5)  # Resample points at each epoch for better training
 
         # Collocation points for PDE:
         pde_pts = jax.random.uniform(pde_key, (n_collocation, total_system.dim + 1))
@@ -159,13 +156,17 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
             t_bounds[1] - t_bounds[0]
         ]) + jnp.array([x_bounds[0], y_bounds[0], t_bounds[0]])
 
-        x_bc = jax.random.uniform(bc_key, (n_bc, 1)) * (x_bounds[1] - x_bounds[0]) + x_bounds[0]
-        y_bc = jax.random.uniform(bc_key, (n_bc, 1)) * (y_bounds[1] - y_bounds[0]) + y_bounds[0]
-        t_bc = jax.random.uniform(bc_key, (n_bc, 1)) * (t_bounds[1] - t_bounds[0]) + t_bounds[0]
+        # Sample one set of boundary bounds / points:
+        t_bc = jax.random.uniform(bct_key, (n_bc, 1)) * (t_bounds[1] - t_bounds[0]) + t_bounds[0]
+        y_bc = jax.random.uniform(bcy_key, (n_bc, 1)) * (y_bounds[1] - y_bounds[0]) + y_bounds[0]
+        x_bc = jax.random.uniform(bcx_key, (n_bc, 1)) * (x_bounds[1] - x_bounds[0]) + x_bounds[0]
+
+        # Build points arrays for periodic BCs
         bc_x_1 = jnp.concatenate([jnp.full_like(y_bc, x_bounds[0]), y_bc, t_bc], axis=1)
         bc_x_2 = jnp.concatenate([jnp.full_like(y_bc, x_bounds[1]), y_bc, t_bc], axis=1)
         bc_y_1 = jnp.concatenate([x_bc, jnp.full_like(x_bc, y_bounds[0]), t_bc], axis=1)
         bc_y_2 = jnp.concatenate([x_bc, jnp.full_like(x_bc, y_bounds[1]), t_bc], axis=1)
+
         bc_pts_pair = (bc_x_1, bc_x_2, bc_y_1, bc_y_2)
 
         params, opt_state, losses = train_step(
