@@ -3,62 +3,59 @@ import jax
 import optax
 import jax.numpy as jnp
 
-def _cahn_hilliard_residual(model, params, xyt, free_energy_model, interface_scalar, kappa, n_species):
+def _cahn_hilliard_residual(model, params, xyt, free_energy_model, interface_scalar, kappa, mobility, n_species):
     """ Residuals cacluation for training Cahn-Hilliard network """
-    def rho_mu_fn(xyt_in):
+    def rho_mu_fn_single(xyt_point):
         # Model outputs [rho_1, ..., rho_N, mu_1, ..., mu_N]
-        model_output = model.apply(params, xyt_in)   # shape: (2*n_species,)
+        model_output = model.apply(params, xyt_point)   # shape: (2*n_species,)
         rho, mu = jnp.split(model_output, 2)
         return rho, mu
 
-    def rho_fn(z):
-        return rho_mu_fn(z)[0]  # (n_species,)
+    def compute_rho_laplacians(xyt_point):
+        # Helper function: computes Laplacian for the i-th rho at a point z.
+        def _lap(i, z):
+            hessian_matrix = jax.hessian(lambda pt: rho_mu_fn_single(pt)[0][i])(z)
+            return hessian_matrix[0, 0] + hessian_matrix[1, 1]
+        return jax.vmap(_lap, in_axes=(0, None))(jnp.arange(n_species), xyt_point)
 
-    def mu_fn(z):
-        return rho_mu_fn(z)[1]  # (n_species,)
+    def compute_mu_laplacians(xyt_point):
+        # Same logic for mu.
+        def _lap(i, z):
+            hessian_matrix = jax.hessian(lambda pt: rho_mu_fn_single(pt)[1][i])(z)
+            return hessian_matrix[0, 0] + hessian_matrix[1, 1]
+        return jax.vmap(_lap, in_axes=(0, None))(jnp.arange(n_species), xyt_point)
 
-    # Derivative builders for vector-valued functions:
-    # J_rho_fn(z) -> (n_species, 3); H_rho_fn(z) -> (n_species, 3, 3)
-    J_rho_fn = jax.jacrev(rho_fn)
-    H_rho_fn = jax.jacrev(jax.jacfwd(rho_fn))
 
-    J_mu_fn = jax.jacrev(mu_fn)
-    H_mu_fn = jax.jacrev(jax.jacfwd(mu_fn))
+    def single_residual(xyt_point):
+        # Get values and all derivatives at the point
+        rho_val, mu_val = rho_mu_fn_single(xyt_point)  # Each has shape (n_species,)
+        jac_rho, jac_mu = jax.jacobian(rho_mu_fn_single)(xyt_point)  # Shape (n_species, 3) for each
+        lap_rho_val = compute_rho_laplacians(xyt_point)
+        lap_mu_val = compute_mu_laplacians(xyt_point)
 
-    def single_residual(z):
-        # Values
-        rho_val = rho_fn(z)     # (n_species,)
-        mu_val  = mu_fn(z)      # (n_species,)
+        # Extract time derivative from the Jacobian
+        rho_t = jac_rho[:, -1]
 
-        # Time derivative of rho: take Jacobian and pick t-column
-        J_rho = J_rho_fn(z)     # (n_species, 3) for (x, y, t)
-        rho_t = J_rho[:, -1]    # (n_species,)
+        # Residual 1: ∂ρ/∂t - ∇²μ = 0  (assuming mobility M=1)
+        residual_1 = rho_t - mobility * lap_mu_val
 
-        # Laplacians from Hessians: trace over spatial dims (x,y)
-        H_rho  = H_rho_fn(z)    # (n_species, 3, 3)
-        lap_rho = H_rho[:, 0, 0] + H_rho[:, 1, 1]  # (n_species,)
+        # Residual 2: μ - (∂f_bulk/∂ρ - κ∇²ρ) = 0
+        bulk_derivative = free_energy_model.der_bulk_free_energy_pointwise(rho_val)
+        residual_2 = mu_val - (bulk_derivative - interface_scalar * kappa * lap_rho_val)
 
-        H_mu   = H_mu_fn(z)     # (n_species, 3, 3)
-        lap_mu = H_mu[:, 0, 0] + H_mu[:, 1, 1]     # (n_species,)
+        return jnp.concatenate([residual_1, residual_2], axis=-1)
 
-        # Residuals
-        # R1: ∂ρ/∂t − ∇²μ
-        r1 = rho_t - lap_mu
-
-        # R2: μ − (∂f/∂ρ − κ ∇²ρ)
-        bulk_deriv = free_energy_model.der_bulk_free_energy_pointwise(rho_val)  # (n_species,)
-        r2 = mu_val - (bulk_deriv - interface_scalar * kappa * lap_rho)
-
-        return jnp.concatenate([r1, r2], axis=-1)  # (2*n_species,)
-
-    # Vectorize over collocation batch
-    return jax.vmap(single_residual)(xyt)  # (batch, 2*n_species)
+    # Vmap the entire single-point calculation over the batch of collocation points.
+    # This is the key to efficiency.
+    residuals = jax.vmap(single_residual)(xyt)
+    return residuals
 
 def train_ch(config, model, free_energy_model, total_system, N_species, initial_condition):
     """ Train Cahn_Hilliard-based PINN """
     train_params = _read_in_config(config)
     rng = jax.random.PRNGKey(train_params.get('seed'))
     kappa = total_system.k_laplacian
+    mobility = total_system.M
     w_ic = train_params.get('w_ic', 100.0)
     w_bc = train_params.get('w_bc', 10.0)
     kappa_weight = config.get('interface_scalar', 1.0)
@@ -92,7 +89,8 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
 
     def loss_fn(_params, _pde_pts, _ic_pts, _ic_rho, _bc_pts_pair):
         # First get residual loss:
-        R = _cahn_hilliard_residual(model, _params, _pde_pts, free_energy_model, kappa_weight, kappa, N_species)
+        R = _cahn_hilliard_residual(model, _params, _pde_pts, free_energy_model, kappa_weight, kappa, mobility,
+                                    N_species)
         mean_residual_squared = jnp.mean(R ** 2)
 
         # Initial condition loss

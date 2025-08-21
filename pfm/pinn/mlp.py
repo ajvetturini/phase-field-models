@@ -9,14 +9,15 @@ class FourierFeatures(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        # x has shape (..., input_dim)
-        key = self.make_rng("params")
         shape = (x.shape[-1], self.output_dim // 2)
+        # initializer = nn.initializers.normal(stddev=self.scale)
+
         if self.trainable:
             B = self.param("B", nn.initializers.normal(stddev=self.scale), shape)
         else:
-            B = self.variable("constants", "B",
-                              lambda _: jax.random.normal(key, shape) * self.scale).value
+            creator_fn = lambda: jax.random.normal(self.make_rng("params"), shape) * self.scale
+            B = self.variable("constants", "B", creator_fn).value
+
         proj = x @ B
         return jnp.concatenate([jnp.sin(proj), jnp.cos(proj)], axis=-1)
 
@@ -28,13 +29,14 @@ class MLP(nn.Module):
     use_fourier_features: bool = True
     fourier_dim: int = 64  # Number of fourier features, however can lead to overfitting
     fourier_scale: float = 1.0  # How rapidly the features vary
+    trainable: bool = False
 
     @nn.compact
     def __call__(self, xyt):
         h = xyt
         if self.use_fourier_features:
             # Apply fourier features and concatenate with original input
-            f = FourierFeatures(self.fourier_dim, self.fourier_scale)(h)
+            f = FourierFeatures(self.fourier_dim, self.fourier_scale, self.trainable)(h)
             h = jnp.concatenate([h, f], axis=-1)
 
         for width in self.layers:
