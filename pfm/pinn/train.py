@@ -3,7 +3,7 @@ import jax
 import optax
 import jax.numpy as jnp
 
-def _cahn_hilliard_residual(model, params, xyt, free_energy_model, kappa, n_species):
+def _cahn_hilliard_residual(model, params, xyt, free_energy_model, interface_scalar, kappa, n_species):
     """ Residuals cacluation for training Cahn-Hilliard network """
     def rho_and_mu_fn(xyt_in):
         # Model outputs [rho_1, ..., rho_N, mu_1, ..., mu_N]
@@ -38,7 +38,7 @@ def _cahn_hilliard_residual(model, params, xyt, free_energy_model, kappa, n_spec
 
         # Residual 2: R₂ = μ - (df/dρ - κ ∇²ρ)
         bulk_derivative = free_energy_model.der_bulk_free_energy(rho_val)
-        residual_2 = mu_val - (bulk_derivative - kappa * lap_rho)
+        residual_2 = mu_val - (bulk_derivative - (interface_scalar * kappa * lap_rho))
 
         # Concatenate residuals for all species
         return jnp.concatenate([residual_1, residual_2], axis=-1)
@@ -54,6 +54,7 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
     kappa = total_system.k_laplacian
     w_ic = train_params.get('w_ic', 100.0)
     w_bc = train_params.get('w_bc', 10.0)
+    kappa_weight = config.get('interface_scalar', 1.0)
 
     # Initialize parameters with dummy input
     xyt_dummy = jnp.ones((1, total_system.dim + 1))
@@ -83,7 +84,7 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
 
     def loss_fn(_params, _pde_pts, _ic_pts, _ic_rho, _bc_pts_pair):
         # First get residual loss:
-        R = _cahn_hilliard_residual(model, _params, _pde_pts, free_energy_model, kappa, N_species)
+        R = _cahn_hilliard_residual(model, _params, _pde_pts, free_energy_model, kappa_weight, kappa, N_species)
         mean_residual_squared = jnp.mean(R ** 2)
 
         # Initial condition loss
