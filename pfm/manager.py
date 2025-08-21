@@ -404,8 +404,8 @@ class PINNManager:
             layers = config.get('network_size', [128, 128, 128, 128])
             activation = config.get('activation_function', 'tanh')
             activation_func = _read_in_activation_function(activation)
-            fourier_dim = config.get('fourier_feature_dim', 256)
-            fourier_scale = config.get('fourier_feature_scale', 10.0)
+            fourier_dim = config.get('fourier_feature_dim', 64)
+            fourier_scale = config.get('fourier_feature_scale', 1.0)
             return MLP(dimensions + 1, output_dimension, layers, activation_func, True, fourier_dim, fourier_scale)
 
         else:

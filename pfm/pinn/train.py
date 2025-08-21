@@ -20,24 +20,27 @@ def _cahn_hilliard_residual(model, params, xyt, free_energy_model, interface_sca
 
     def single_residual(xyt_in):
         # rho and its derivatives
-        rho_val = rho_fn(xyt_in)  # Value of rho
-        J_rho = jax.jacfwd(rho_fn)(xyt_in)  # Jacobian of rho wrt (x, y, t)
-        rho_t = J_rho[..., -1]  # Time derivative: ∂ρ/∂t
-        hessian_rho = jax.hessian(rho_fn)(xyt_in)
+        rho_val = rho_fn(xyt_in)  # Shape: (n_species,)
+        J_rho = jax.jacfwd(rho_fn)(xyt_in)  # Shape: (n_species, 3) for (x,y,t)
+        rho_t = J_rho[..., -1]  # Time derivative: ∂ρ/∂t, shape: (n_species,)
+        hessian_rho = jax.hessian(rho_fn)(xyt_in)  # Shape: (n_species, 3, 3)
 
-        # Slicing [..., :-1, :-1] removes the time dimension from the Hessian
-        lap_rho = jnp.trace(hessian_rho[..., :-1, :-1], axis1=-2, axis2=-1)
+        # Spatial Hessian
+        #lap_rho = jnp.trace(hessian_rho[..., :-1, :-1], axis1=-2, axis2=-1)
+        lap_rho = hessian_rho[:, 0, 0] + hessian_rho[:, 1, 1]  # Shape: (n_species,)
 
         # mu and its derivatives
-        mu_val = mu_fn(xyt_in)  # Value of mu
-        hessian_mu = jax.hessian(mu_fn)(xyt_in)
-        lap_mu = jnp.trace(hessian_mu[..., :-1, :-1], axis1=-2, axis2=-1)
+        mu_val = mu_fn(xyt_in)  # Shape: (n_species,)
+        hessian_mu = jax.hessian(mu_fn)(xyt_in)  # Shape: (n_species, 3, 3)
+        # lap_mu = jnp.trace(hessian_mu[..., :-1, :-1], axis1=-2, axis2=-1)
+        lap_mu = hessian_mu[:, 0, 0] + hessian_mu[:, 1, 1]  # Shape: (n_species,)
 
         # Residual 1: R₁ = ∂ρ/∂t - ∇²μ
         residual_1 = rho_t - lap_mu
 
         # Residual 2: R₂ = μ - (df/dρ - κ ∇²ρ)
-        bulk_derivative = free_energy_model.der_bulk_free_energy(rho_val)
+        #bulk_derivative = free_energy_model.der_bulk_free_energy(rho_val)
+        bulk_derivative = free_energy_model.der_bulk_free_energy_pointwise(rho_val)
         residual_2 = mu_val - (bulk_derivative - (interface_scalar * kappa * lap_rho))
 
         # Concatenate residuals for all species
@@ -63,10 +66,11 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
     # Setup optimizer + model:
     lr_schedule = optax.exponential_decay(
         init_value=train_params.get('learning_rate'),
-        transition_steps=5000,
-        decay_rate=0.9
+        transition_steps=1000,
+        decay_rate=0.95,
+        end_value=1e-6
     )
-    optimizer = optax.adam(lr_schedule)
+    optimizer = optax.adamw(lr_schedule, weight_decay=1e-4)
     opt_state = optimizer.init(params)
 
     # Setup positional bounds:
@@ -93,7 +97,8 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
         loss_ic = jnp.mean((pred_rho_t0 - _ic_rho) ** 2)
 
         # Periodic boundary condition Loss
-        # Enforces that rho(x_min, y, t) == rho(x_max, y, t) and so on.
+        # Enforces that rho(x_min, y, t) == rho(x_max, y, t) and
+        # rho(x, y_min, t) == rho(x, y_max, t)
         bc_pts_1, bc_pts_2, bc_pts_3, bc_pts_4 = _bc_pts_pair
         pred_1 = model.apply(_params, bc_pts_1)
         pred_2 = model.apply(_params, bc_pts_2)
@@ -122,16 +127,19 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
         return next_params, next_opt_state, loss_breakdown
 
     n_collocation = train_params.get('n_collocation')
+    n_bc = train_params.get('n_boundary')
+
     for epoch in range(train_params.get('epochs')):
         rng, pde_key, bc_key = jax.random.split(rng, 3)  # Resample points at each epoch for better training
 
         # Collocation points for PDE:
         pde_pts = jax.random.uniform(pde_key, (n_collocation, total_system.dim + 1))
-        pde_pts = pde_pts * jnp.array(
-            [x_bounds[1] - x_bounds[0], y_bounds[1] - y_bounds[0], t_bounds[1] - t_bounds[0]]) + jnp.array(
-            [x_bounds[0], y_bounds[0], t_bounds[0]])
+        pde_pts = pde_pts * jnp.array([
+            x_bounds[1] - x_bounds[0],
+            y_bounds[1] - y_bounds[0],
+            t_bounds[1] - t_bounds[0]
+        ]) + jnp.array([x_bounds[0], y_bounds[0], t_bounds[0]])
 
-        n_bc = train_params.get('n_boundary', 256)  # Boundary points for periodic BCs
         x_bc = jax.random.uniform(bc_key, (n_bc, 1)) * (x_bounds[1] - x_bounds[0]) + x_bounds[0]
         y_bc = jax.random.uniform(bc_key, (n_bc, 1)) * (y_bounds[1] - y_bounds[0]) + y_bounds[0]
         t_bc = jax.random.uniform(bc_key, (n_bc, 1)) * (t_bounds[1] - t_bounds[0]) + t_bounds[0]
