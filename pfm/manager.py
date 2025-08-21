@@ -368,8 +368,17 @@ class PINNManager:
         self._system = _read_in_model(self._free_energy_model, config, model_type,
                                       None, self._rng_seed, custom_fn=custom_initial_condition)
         initial_order_params = self._system.get_initial_condition()  # (N_species, Nx, Ny, ...)
-        self.initial_condition = initial_order_params
+        # self.initial_condition = initial_order_params
         N_species = initial_order_params.shape[0]
+        N = initial_order_params.shape[1]
+
+        print('NOTE: Modifying the input initial condition...')
+        densities = jnp.array([0.01])
+        noise_amplitude = 0.02
+        noise = jax.random.uniform(jax.random.PRNGKey(0), shape=(N_species, N, N)) - 0.5
+        initial_field = densities[:, None, None] + noise_amplitude * noise
+        self.initial_condition = initial_field
+
         self.N_species = N_species
         if custom_PINN is not None:
             self._network = custom_PINN

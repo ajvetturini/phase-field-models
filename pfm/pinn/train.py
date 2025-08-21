@@ -100,12 +100,14 @@ def train_ch(config, model, free_energy_model, total_system, N_species, initial_
         pred_4 = model.apply(_params, bc_pts_4)
         loss_bc = jnp.mean((pred_1 - pred_2) ** 2) + jnp.mean((pred_3 - pred_4) ** 2)
 
-        total_loss = mean_residual_squared + (w_ic * loss_ic) + (w_bc * loss_bc)
+        weighted_ic_loss = w_ic * loss_ic
+        weighted_bc_loss = w_bc * loss_bc
+        total_loss = mean_residual_squared + weighted_ic_loss + weighted_bc_loss
         loss_dict = {
             'total': total_loss,
             'pde': mean_residual_squared,
-            'ic': loss_ic,
-            'bc': loss_bc
+            'ic': weighted_ic_loss,
+            'bc': weighted_bc_loss
         }
         return total_loss, loss_dict
 
