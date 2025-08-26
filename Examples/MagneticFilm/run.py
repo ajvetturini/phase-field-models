@@ -28,14 +28,15 @@ class MagneticFilm(FreeEnergyModel):
         """ Calculates the double-well bulk free energy for each point in the grid. """
         return self._delta * (jnp.pow(phi_species, 4) - 2 * (jnp.pow(phi_species, 2)))
 
-    def _total_bulk_free_energy(self, rho_species):
-        return jnp.sum(self._elementwise_bulk_free_energy(rho_species))
+    def _der_bulk_free_energy_point_autodiff(self, rhos):
+        return jax.grad(self.bulk_free_energy)(rhos)
 
     @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy_autodiff(self, species, rho_species):
+    def der_bulk_free_energy_autodiff(self, rhos):
         """ Uses autodiff to evaluate the bulk_free_energy term """
-        elementwise_grad_fn = jax.grad(self._total_bulk_free_energy)(rho_species)
-        return elementwise_grad_fn
+        rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])  # shape (Nx*Ny, N_species)
+        out = jax.vmap(self._der_bulk_free_energy_point_autodiff)(rhos_flat)
+        return out.T.reshape(rhos.shape)
 
     def bulk_free_energy(self, rho_species):
         op = rho_species[0]  # Only 1 species
@@ -63,7 +64,7 @@ def custom_initial_condition(init_phi):
 
 # ALSO: If you specify a custom function using jax, you MUST specify the CUDA device here prior to importing jax
 #       See how main.py is structured!
-c = toml.load('grain_growth_input.toml')
+c = toml.load('magnetic_film_ch.toml')
 manager = SimulationManager(c, custom_energy=MagneticFilm, custom_initial_condition=custom_initial_condition)
 start = time.time()
 manager.run()
