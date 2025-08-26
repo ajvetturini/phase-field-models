@@ -49,14 +49,13 @@ class SalehWertheim(FreeEnergyModel):
         return bonding_fe
 
     @partial(jax.jit, static_argnums=(0,))
-    def bulk_free_energy(self, rho_species):
-        axes_to_sum = tuple(range(1, rho_species.ndim))
-        rho_species_total = jnp.sum(rho_species, axis=axes_to_sum)  # Get total density of each species in dim space
-        rtot = jnp.sum(rho_species_total)  # Then get the total densities of all species together
-        mixing_s = 0.  # Mixing entropy
-        for i in range(self.N_species()):
-            x_i = rho_species_total[i] / rtot  # mole fraction of i-th species
-            mixing_s += jnp.where(x_i > 0, x_i * jnp.log(x_i), 0)
+    def bulk_free_energy(self, rhos):
+        # rhos is shape (N_species,)
+        rtot = jnp.sum(rhos)
+
+        # mixing entropy
+        x = rhos / rtot
+        mixing_s = jnp.sum(jnp.where(x > 0, x * jnp.log(x), 0.0))
 
         # Compile virial coefficients and then total bulk energy as reference + bonding:
         B2 = self._B2 * rtot
@@ -64,71 +63,55 @@ class SalehWertheim(FreeEnergyModel):
 
         f_ref = rtot * (jnp.log(rtot * self._density_conversion_factor) - 1.0 + mixing_s + B2 + B3)
 
-        return f_ref + self.bonding_energy(rho_species_total)
+        return f_ref + self.bonding_energy(rhos)
 
     @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy(self, species, rho_species):
-        rho_species_val = rho_species[species]
+    def _der_bulk_free_energy_point(self, rhos):
+        rho_tot = jnp.sum(rhos)
 
-        def calculate_derivative(carry):
-            _species, _rho_species = carry
-            _rho = jnp.sum(_rho_species)
-            df_ref = jnp.log(_rho_species[_species]) + 2.0 * self._B2 * _rho + 3.0 * self._B3 * _rho ** 2
+        # reference part
+        der_f_ref = jnp.log(rhos) + 2.0 * self._B2 * rho_tot + 3.0 * self._B3 * rho_tot ** 2
 
-            def case_0(r):
-                return self._valence[0] * self._der_contribution(r, 0)
+        # bonding part
+        der_f_bond = jnp.zeros_like(rhos)
+        der_f_bond = der_f_bond.at[0].set(self._valence[0] * self._der_contribution(rhos, 0))
+        der_f_bond = der_f_bond.at[1].set(self._valence[1] * self._der_contribution(rhos, 1))
+        der_f_bond = der_f_bond.at[2].set(self._linker_half_valence *
+                                          (self._der_contribution(rhos, 0) +
+                                           self._der_contribution(rhos, 1)))
 
-            def case_1(r):
-                return self._valence[1] * self._der_contribution(r, 1)
+        return der_f_ref + der_f_bond
 
-            def case_other(r):
-                return self._linker_half_valence * (
-                        self._der_contribution(r, 0) + self._der_contribution(r, 1)
-                )
-
-            df_bond = jax.lax.cond(
-                _species == 0, case_0,
-                lambda r2d2: jax.lax.cond(
-                    _species == 1, case_1, case_other, _rho_species
-                ), _rho_species
-            )
-            return df_ref + df_bond
-
-        def return_zero(carry):
-            return 0.0
-
-        result = jax.lax.cond(rho_species_val == 0.0,
-                              return_zero,
-                              calculate_derivative,
-                              (species, rho_species))
-        return result
-
-    def _der_contribution(self, rhos, species):
+    def _der_contribution(self, rhos, species: int):
         if species == 0:
             delta = self._delta_AA.delta
         else:
             delta = self._delta_BB.delta
 
-        rho_factor = delta * (self._valence[species] * rhos[species] + self._linker_half_valence * rhos[2])
-        x = (-1. + jnp.sqrt(1. + 4. * rho_factor)) / (2. * rho_factor)
+        rho_factor = delta * (self._valence[species] * rhos[species] +
+                              self._linker_half_valence * rhos[2])
 
-        ret_val = jax.lax.cond(
-            rho_factor >= 0.,
-            lambda: jnp.log(x),
-            lambda: 0.
-        )
+        X = (-1.0 + jnp.sqrt(1.0 + 4.0 * rho_factor)) / (2.0 * rho_factor)
 
-        return ret_val
-
-    def _elementwise_bulk_free_energy(self, species, rho_species):
-        """ Calculates the bulk free energy for each point in the grid. """
-        pass
-
-    def _total_bulk_free_energy(self, rho_species):
-        return jnp.sum(self._elementwise_bulk_free_energy(rho_species))
+        return jnp.where(rho_factor >= 0, jnp.log(X), 0.0)
 
     @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy_autodiff(self, species, rho_species):
+    def der_bulk_free_energy(self, rhos):
+        # Reshape so vmapped function sees (Nx*Ny, N_species)
+        rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])  # shape (Nx*Ny, N_species)
+        out = jax.vmap(self._der_bulk_free_energy_point)(rhos_flat)  # shape (Nx*Ny, N_species)
+
+        return out.T.reshape(rhos.shape)
+
+
+    def _der_bulk_free_energy_point_autodiff(self, rhos):
+        """ Calculates the bulk free energy for each point in the grid. """
+        return jax.grad(self.bulk_free_energy)(rhos)   # shape (N_species,)
+
+    @partial(jax.jit, static_argnums=(0,))
+    def der_bulk_free_energy_autodiff(self, rhos):
         """ Uses autodiff to evaluate the bulk_free_energy term """
-        elementwise_grad_fn = jax.grad(self._total_bulk_free_energy)(rho_species)
-        return elementwise_grad_fn
+        # rhos is shape (N_species, Nx, Ny)
+        rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])  # shape (Nx*Ny, N_species)
+        out = jax.vmap(self._der_bulk_free_energy_point_autodiff)(rhos_flat)
+        return out.T.reshape(rhos.shape)
