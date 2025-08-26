@@ -2,10 +2,8 @@ import numpy as np
 import toml
 import jax
 import jax.numpy as jnp
-from flax import linen as nn
 from pfm.energy_models import Landau, SimpleWertheim, GenericWertheim, SalehWertheim
 from pfm.integrators import ExplicitEuler, SemiImplicitSpectral
-from pfm.pinn import MLP, train_ch, train_ac
 from pfm.phase_field_models import CahnHilliard, AllenCahn
 import os
 from functools import partial
@@ -40,9 +38,9 @@ class SimulationManager:
         # Setup the free energy model, integrator, and system based on if jax is being used:
         # The custom_energy and custom_initial_conditions might be None (which is fine) but are still passed in
         # The use of the TOML config dictates the use of these custom functions
-        self._free_energy_model = _read_in_energy_model(config, config.get('free_energy'), custom_energy)
+        self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'), custom_energy)
         self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator', 'euler'))
-        self._system = _read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
+        self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
                                            self._integrator, self._rng_seed, custom_fn=custom_initial_condition)
         self._traj_printed = 0
         self._trajectories = []
@@ -56,6 +54,31 @@ class SimulationManager:
         for traj in self._trajectories:
             if traj:
                 traj.close()
+
+    @staticmethod
+    def _read_in_energy_model(config, free_energy, CustomEnergy):
+        if free_energy.lower() == 'landau':
+            return Landau(config)
+        elif free_energy.lower() == 'simple_wertheim':
+            return SimpleWertheim(config)
+        elif free_energy.lower() == 'generic_wertheim':
+            return GenericWertheim(config)
+        elif free_energy.lower() == 'saleh' or free_energy.lower() == 'saleh_wertheim':
+            return SalehWertheim(config)
+        elif free_energy.lower() == 'custom':
+            return CustomEnergy(config)
+
+        else:
+            raise Exception(f'Invalid free_energy specified: {free_energy}, valid options are: landau, custom')
+
+    @staticmethod
+    def _read_in_model(model, config, model_name, integrator, rng_seed, custom_fn):
+        if model_name.lower() == 'ch':
+            return CahnHilliard(model, config, integrator, rng_seed, custom_fn=custom_fn)
+        elif model_name.lower() == 'ac':
+            return AllenCahn(model, config, integrator, rng_seed, custom_fn=custom_fn)
+        else:
+            raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ac (Allen-Cahn)')
 
     @staticmethod
     def _read_in_integrator(model, config, integrator_name):
@@ -345,211 +368,6 @@ class SimulationManager:
         jax.profiler.stop_trace()
         return rho_n
 
-class PINNManager:
-    """ Read in TOML + Solve Cahn-Hilliard / Allen-Cahn via a PINN-based simulation. """
-
-    def __init__(self, config, custom_energy=None, custom_initial_condition=None, custom_PINN=None):
-        self._config = config
-        self._write_path = config.get('write_path', r'./')  # Assumes same directory writing by default
-
-        # Set RNG:
-        self._rng_seed = int(config.get('steps', np.random.randint(1000000)))
-        if 'steps' not in config:
-            print(f'RNG seed not specified, using seed: {self._rng_seed}')
-
-        # Setup the free energy model, integrator, and system based on if jax is being used:
-        # The custom_energy and custom_initial_conditions might be None (which is fine) but are still passed in
-        # The use of the TOML config dictates the use of these custom functions
-        self._free_energy_model = _read_in_energy_model(config, config.get('free_energy'), custom_energy)
-        # Note: We can simply "pass in" the PINN below, as we are really just grabbing the initial condition for
-        # code reuse
-        model_type = config.get('model', 'ch').lower()
-        self.model_type = model_type
-        self._system = _read_in_model(self._free_energy_model, config, model_type,
-                                      None, self._rng_seed, custom_fn=custom_initial_condition)
-        initial_order_params = self._system.get_initial_condition()  # (N_species, Nx, Ny, ...)
-        # self.initial_condition = initial_order_params
-        N_species = initial_order_params.shape[0]
-        N = initial_order_params.shape[1]
-
-        print('NOTE: Modifying the input initial condition...')
-        densities = jnp.array([0.01])
-        noise_amplitude = 0.02
-        noise = jax.random.uniform(jax.random.PRNGKey(0), shape=(N_species, N, N)) - 0.5
-        initial_field = densities[:, None, None] + noise_amplitude * noise
-        self.initial_condition = initial_field
-
-        self.N_species = N_species
-        if custom_PINN is not None:
-            self._network = custom_PINN
-        else:
-            self._network = self._read_in_network(self._system.dim, N_species, config)
-
-        # Store init data from system:
-        name = 'init_' + self._system.field_name
-        self.init_field = getattr(self._system, name)
-
-    @staticmethod
-    def _read_in_network(dimensions, n_species, config):
-        """ Reads in a specified PINN to replace the numerical integrator """
-        network_type = config.get('network', 'mlp_fourier').lower()
-        output_dimension = 2 * n_species  # The output must be 2 * n_species for (rho_1, ..., mu_1, ...)
-        if network_type.lower() == 'mlp':
-            layers = config.get('network_size', [128, 128, 128, 128])
-            activation = config.get('activation_function', 'swish')
-            activation_func = _read_in_activation_function(activation.lower())
-            return MLP(dimensions+1, output_dimension, layers, activation_func, False)
-
-        elif network_type.lower() == 'mlp_fourier':
-            layers = config.get('network_size', [128, 128, 128, 128])
-            activation = config.get('activation_function', 'tanh')
-            activation_func = _read_in_activation_function(activation)
-            fourier_dim = config.get('fourier_feature_dim', 32)
-            fourier_scale = config.get('fourier_feature_scale', 1.0)
-            trainable_b = config.get('trainable_B', False)
-            return MLP(dimensions + 1, output_dimension, layers, activation_func, True, fourier_dim, fourier_scale,
-                       trainable_b)
-
-        else:
-            raise Exception('Invalid network type specified, valid options are: `mlp`, `mlp_fourier`, ...')
-
-    def solve(self, write_trajectory: bool = True):
-        """ Trains the network to solve the Cahn-Hilliard or Allen-Cahn equation via a PINN approach. """
-        start = time.time()
-        assert len(self.initial_condition.shape) in [3], 'ERROR: PINN only setup for 2D problems (N_species,' \
-                                                            ' Nx, Ny) as of now.'
-        if self.model_type == 'ch':
-            trained_params = train_ch(self._config, self._network, self._free_energy_model, self._system,
-                                      self.N_species, self.initial_condition)
-        else:
-            trained_params = train_ac(self._config, self._network, self._free_energy_model, self._system,
-                                      self.N_species, self.initial_condition)
-        end = time.time()
-        print(f'Training completed in {end - start:.2f} seconds.')
-
-        # First export the final frame:
-        self._export_final_frame_all_species(trained_params)
-
-        # Export a video of each:
-        if write_trajectory:
-            print('NOTE: Writing trajectory file may take some time, please be patient...')
-            num_frames = self._config.get('num_frames', 100)
-            self._export_trajectories(trained_params, 1.0, num_frames)  # Animation -> t_final of 1.0 (normalied)
-
-    def _export_final_frame_all_species(self, trained_params):
-        """ Exports a final .dat frame of each N species """
-        # Apply the trained params + output result of Cahn-Hilliard for final "time" along with a trajectory:
-        t_final = 1.0
-        x_bounds = [0.0, 1.0]
-        y_bounds = [0.0, 1.0]
-        grid_res = self.init_field.shape[1]  # Assuming square grid, Nx = Ny = grid_res
-        x_space = jnp.linspace(x_bounds[0], x_bounds[1], grid_res)
-        y_space = jnp.linspace(y_bounds[0], y_bounds[1], grid_res)
-        xx, yy = jnp.meshgrid(x_space, y_space)
-        tt = jnp.ones_like(xx) * t_final
-
-        # Flatten the grid and stack to create model inputs (N, 3) for (x, y, t)
-        xyt_eval = jnp.stack([xx.flatten(), yy.flatten(), tt.flatten()], axis=-1)
-
-        # Apply the model with the trained parameters
-        # The model will output predictions for [rho_1..N, mu_1..N]
-        predictions = self._network.apply(trained_params, xyt_eval)
-
-        # Extract and reshape the concentration (rho)
-        rho_all_species = predictions[:, :self.N_species]
-
-        for i in range(self.N_species):
-            # Select the data for the current species 'i'
-            rho_flat = rho_all_species[:, i]
-            rho_final_grid = rho_flat.reshape((grid_res, grid_res))
-
-            # Write out final grid:
-            solution_grid_np = np.array(rho_final_grid)
-            dim_string = f'{grid_res}x{grid_res}'
-            header_str = f'# normalized_time = {t_final}, species = {i}, size = ' + dim_string + '\n'
-            outpath = os.path.join(self._write_path, f"solution_species_{i}.dat")
-            with open(outpath, 'w') as file:
-                file.write(header_str)
-                for row in solution_grid_np:
-                    row_as_string = ' '.join(map(str, row))
-                    file.write(row_as_string + '\n')
-
-    def _export_trajectories(self, trained_params, t_final, num_frames):
-        """ Exports trajectory files using the trained network parameters for each species """
-        time_steps = np.linspace(0.0, t_final, num=num_frames)
-
-        # Create basic objects:
-        x_bounds = [0.0, 1.0]
-        y_bounds = [0.0, 1.0]
-        grid_res = self.init_field.shape[1]  # Assuming square grid, Nx = Ny = grid_res
-        x_space = jnp.linspace(x_bounds[0], x_bounds[1], grid_res)
-        y_space = jnp.linspace(y_bounds[0], y_bounds[1], grid_res)
-        dim_string = f'{grid_res}x{grid_res}'
-        all_species_to_export = {i: [] for i in range(self.N_species)}
-
-        for i, t in enumerate(time_steps):
-            xx, yy = jnp.meshgrid(x_space, y_space)
-            tt = jnp.ones_like(xx) * t  # For each time-step
-            xyt_eval = jnp.stack([xx.flatten(), yy.flatten(), tt.flatten()], axis=-1)
-
-            predictions = self._network.apply(trained_params, xyt_eval)
-
-            # Now extract rho for each species:
-            for n in range(self.N_species):
-                rho_flat = predictions[:, n]  # Assuming single species
-                rho_grid = rho_flat.reshape((grid_res, grid_res))
-                next_frame_string = f'# normalized_time = {t}, species = {n}, size = ' + dim_string + '\n'
-                all_species_to_export[n].append((next_frame_string, rho_grid))
-
-        # Now we will write out the trajectory files for each N-species from the dict:
-        for species, frames in all_species_to_export.items():
-            outpath = os.path.join(self._write_path, f"trajectory_species_{species}.dat")
-            with open(outpath, 'w') as file:
-                for f in frames:
-                    header_str, rho_grid = f
-                    file.write(header_str)
-
-                    for row in rho_grid:
-                        row_as_string = ' '.join(map(str, row))
-                        file.write(row_as_string + '\n')
-
-
-def _read_in_energy_model(config, free_energy, CustomEnergy):
-    if free_energy.lower() == 'landau':
-        return Landau(config)
-    elif free_energy.lower() == 'simple_wertheim':
-        return SimpleWertheim(config)
-    elif free_energy.lower() == 'generic_wertheim':
-        return GenericWertheim(config)
-    elif free_energy.lower() == 'saleh' or free_energy.lower() == 'saleh_wertheim':
-        return SalehWertheim(config)
-    elif free_energy.lower() == 'custom':
-        return CustomEnergy(config)
-
-    else:
-        raise Exception(f'Invalid free_energy specified: {free_energy}, valid options are: landau, custom')
-
-
-def _read_in_model(model, config, model_name, integrator, rng_seed, custom_fn):
-    if model_name.lower() == 'ch':
-        return CahnHilliard(model, config, integrator, rng_seed, custom_fn=custom_fn)
-    elif model_name.lower() == 'ac':
-        return AllenCahn(model, config, integrator, rng_seed, custom_fn=custom_fn)
-    else:
-        raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ac (Allen-Cahn)')
-
-def _read_in_activation_function(activation_name: str):
-    """ Returns the flax activation function based on a string name """
-    if activation_name == 'tanh':
-        return nn.tanh
-    elif activation_name == 'relu':
-        return nn.relu
-    elif activation_name == 'swish':
-        return nn.swish
-    elif activation_name == 'gelu':
-        return nn.gelu
-    else:
-        raise Exception('ERROR: Invalid activation function name')
 
 
 if __name__ == '__main__':

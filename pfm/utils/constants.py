@@ -1,8 +1,7 @@
 """
 Various constants used throughout the simulation code
 """
-from typing import List, Dict
-from dataclasses import dataclass
+from typing import List
 
 class Species:
     """

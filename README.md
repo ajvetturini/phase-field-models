@@ -1,6 +1,6 @@
-# Phase Field Modelling using JAX + PINNs
+# Phase Field Modelling using JAX
 
-Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model algorithms (inspired from https://github.com/lorenzo-rovigatti/cahn-hilliard) alongside reproduced results and sample PINN (Physics Informed Neural Network) implementations. The output of this phase field package (i.e., the resultant mass / energy log and order parameter trajectory) are formatted similarly to the cahn-hilliard package, and here we also implement Allen-Cahn model. Overall, if you are unfamiliar with phase fields / other mesoscopic simulations, I'd recommend reading Ch 12 and 13 of Introduction to Computational Materials Science by Richard Lesar.
+Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model algorithms (inspired from https://github.com/lorenzo-rovigatti/cahn-hilliard) alongside reproduced results. The output of this phase field package (i.e., the resultant mass / energy log and order parameter trajectory) are formatted similarly to the cahn-hilliard package, and here we also implement Allen-Cahn model. Overall, if you are unfamiliar with phase fields / other mesoscopic simulations, I'd recommend reading Ch 12 and 13 of Introduction to Computational Materials Science by Richard Lesar.
 
 Overall, this library has a larger foucs on grid-based phase field modelling for self-assembly based systems, whereas other phase field model implementations (e.g., such as [JAX-AM](https://github.com/tianjuxue/jax-am)) focus on looking at grain development for additive manufacturing where the mesh quality is of greater importance. Furthermore, this package enables **automatic differentiation** to be leveraged for rapid development of new free energy models (at a cost of evaluation speed).
 
@@ -28,7 +28,7 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
   - The LaPlacian operator is the computational overhead since it is calculated twice during Cahn-Hilliard updates
   - Other jax-based implementations for handling the periodic boundary condition laplacian (e.g., FFT or Convolutions) did not seem to improve performance, but that may be due to my specific implementation!
 
-# Citations / Links
+# External Citations / Links
 
 To learn more about the free energy models implemented in this package, please see the citations below. Also, if you used this package then let me know and I can add a citation here!
 
@@ -36,6 +36,10 @@ To learn more about the free energy models implemented in this package, please s
 2. `Saleh Model` | Jeon, B. Nguyen, D. T., and Saleh, A. O., "Sequence-controlled adhesion and microemulsification in a two-phase system of DNA liquid droplets", Journal of Physical Chemistry 123 (2020). | <a href="https://pubs.acs.org/doi/10.1021/acs.jpcb.0c06911" target="_blank">LINK</a>
 
 # Performance Comparison
+
+Coming soon!
+
+# Inverse Design
 
 Coming soon!
 

@@ -2,7 +2,7 @@ from pfm.energy_models.free_energy_model import FreeEnergyModel
 import jax.numpy as jnp
 import jax
 from functools import partial
-from pfm.utils.constants import kb, Species, PatchInteraction, UniquePatch
+from pfm.utils.constants import Species, PatchInteraction
 from pfm.utils.delta import Delta
 from typing import List
 import numpy as np
