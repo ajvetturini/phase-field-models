@@ -2,7 +2,7 @@
 
 Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model algorithms (inspired from https://github.com/lorenzo-rovigatti/cahn-hilliard) alongside reproduced results and sample PINN (Physics Informed Neural Network) implementations. The output of this phase field package (i.e., the resultant mass / energy log and order parameter trajectory) are formatted similarly to the cahn-hilliard package, and here we also implement Allen-Cahn model. Overall, if you are unfamiliar with phase fields / other mesoscopic simulations, I'd recommend reading Ch 12 and 13 of Introduction to Computational Materials Science by Richard Lesar.
 
-Overall, this library has a larger foucs on grid-based phase field modelling for self-assembly based systems, whereas other phase field model implementations (e.g., such as [JAX-AM](https://github.com/tianjuxue/jax-am)) focus on looking at grain development for additive manufacturing where the mesh quality is of greater importance.
+Overall, this library has a larger foucs on grid-based phase field modelling for self-assembly based systems, whereas other phase field model implementations (e.g., such as [JAX-AM](https://github.com/tianjuxue/jax-am)) focus on looking at grain development for additive manufacturing where the mesh quality is of greater importance. Furthermore, this package enables **automatic differentiation** to be leveraged for rapid development of new free energy models (at a cost of evaluation speed).
 
 Finally, these are lengthy simulations if you do not have a hardware accelerator (i.e., GPU / TPU). This jax-based version should still run on a CPU and allow you to still simulate more coarse / lower time step systems due to JIT with performance similar to a CPU-based C++ implementation (but CUDA is much faster than JAX even with accelerators!). Overall, jax should be accessible on any type of computer (Windows, Mac, Linux) but Linux is preferred for easiest access to GPU acceleration. For more information, see [here](https://docs.jax.dev/en/latest/).
 
@@ -10,8 +10,8 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
 
 - The code here supports 1D and 2D simulations and take a TOML-file based input detailing the simulation parameters.
 - Phase field models implemented: `Cahn-Hilliard` | `Allen-Cahn` |
-- Free energy models implemented: `Landau` | `1-species Wertheim`
-- Numerical Integrators implemented: `Explicit Euler` |
+- Free energy models implemented: `Landau` | `1-species Wertheim` | `Saleh-Wertheim`
+- Numerical Integrators implemented: `Explicit Euler` | `Semi-Implicit Fourier Spectral` 
 - Only **periodic** boundary conditions are handled in this implementation.
 - Currently, all grids are handled with constant size $N$ and grid-cell size of $dx$
 - Free energies are handled as _dimensionless_, and the equation constants (e.g., M / mobility constant in Cahn-Hilliard) is actually $M'=K_bTM$ which is treated as 1 (nm s $)^{-1}$
@@ -31,7 +31,7 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
 
 To learn more about the free energy models implemented in this package, please see the citations below. Also, if you used this package then let me know and I can add a citation here!
 
-1. `Wertheim Theory` | Cappa, M., Sciortino, F., and Rovigatti, L., "A phase-field model for DNA self-assembly", arXiv (2025). | <a href="https://arxiv.org/pdf/2501.04790" target="_blank">LINK</a>
+1. `Wertheim Theory` | Cappa, M., Sciortino, F., and Rovigatti, L., "A phase-field model for solutions of DNA-made particles", J. Chem. Phys. 162, 194901 (2025). | <a href="https://pubs.aip.org/aip/jcp/article/162/19/194901/3346915" target="_blank">LINK</a>
 2. `Saleh Model` | Jeon, B. Nguyen, D. T., and Saleh, A. O., "Sequence-controlled adhesion and microemulsification in a two-phase system of DNA liquid droplets", Journal of Physical Chemistry 123 (2020). | <a href="https://pubs.acs.org/doi/10.1021/acs.jpcb.0c06911" target="_blank">LINK</a>
 
 # Performance Comparison

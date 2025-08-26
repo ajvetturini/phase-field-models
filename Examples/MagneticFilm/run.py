@@ -1,12 +1,12 @@
+import jax
+jax.config.update("jax_enable_x64", True)  # NOTE: Place htis before import SimuilationManger / jnp
 from pfm import SimulationManager
 import toml
 import time
 import numpy as np
 from pfm.energy_models.free_energy_model import FreeEnergyModel
-import jax.numpy as jnp
-import jax
 from functools import partial
-jax.config.update("jax_enable_x64", True)
+import jax.numpy as jnp
 
 class MagneticFilm(FreeEnergyModel):
     def __init__(self, config):
