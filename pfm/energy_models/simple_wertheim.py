@@ -8,8 +8,6 @@ class SimpleWertheim(FreeEnergyModel):
 
     def __init__(self, config):
         super().__init__(config)
-
-        # Simple Wetherim specific properties. Note that these come from a 2nd expansion of Virial Coefficient:
         wertheim_config = config.get('wertheim')
         self._B2 = wertheim_config.get('B2')
         self._valence = int(wertheim_config.get('valence'))
@@ -18,7 +16,7 @@ class SimpleWertheim(FreeEnergyModel):
 
         # Scale constants if necesary:
         self._B2 *= (self._inverse_scaling_factor**3)
-        self._delta.delta *= (self._inverse_scaling_factor**3)   # Need to access actual value of delta (_delta.delta)
+        self._delta.delta *= (self._inverse_scaling_factor**3)
         self._regularisation_delta *= (self._inverse_scaling_factor**3)
 
         self._log_delta = jnp.log(self._regularisation_delta)
@@ -78,13 +76,13 @@ class SimpleWertheim(FreeEnergyModel):
 
     def _der_bulk_free_energy_point_autodiff(self, rhos):
         """ Calculates the bulk free energy for each point in the grid. """
-        return jax.grad(self.bulk_free_energy)(rhos)  # shape (N_species,)
+        return jax.grad(self.bulk_free_energy)(rhos)
 
     @partial(jax.jit, static_argnums=(0,))
     def der_bulk_free_energy_autodiff(self, rhos):
         """ Uses autodiff to evaluate the bulk_free_energy term """
         # rhos is shape (N_species, Nx, Ny)
-        rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])  # shape (Nx*Ny, N_species)
+        rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])
         out = jax.vmap(self._der_bulk_free_energy_point_autodiff)(rhos_flat)
         return out.T.reshape(rhos.shape)
 

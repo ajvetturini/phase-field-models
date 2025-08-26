@@ -15,7 +15,7 @@ def plot_density(fp: str, **kwargs):
 def plot_all_densities(list_of_fps: list, list_of_kwargs: list):
     """Plots multiple files, each with its corresponding keyword arguments."""
     for fp, kwargs in zip(list_of_fps, list_of_kwargs):
-        plot_density(fp, **kwargs)  # Correctly unpack kwargs
+        plot_density(fp, **kwargs)
 
 
 def _get_energy(fp: str):

@@ -451,11 +451,11 @@ class PINNManager:
         # Flatten the grid and stack to create model inputs (N, 3) for (x, y, t)
         xyt_eval = jnp.stack([xx.flatten(), yy.flatten(), tt.flatten()], axis=-1)
 
-        # 2. Apply the model with the trained parameters
+        # Apply the model with the trained parameters
         # The model will output predictions for [rho_1..N, mu_1..N]
         predictions = self._network.apply(trained_params, xyt_eval)
 
-        # 3. Extract and reshape the concentration (rho)
+        # Extract and reshape the concentration (rho)
         rho_all_species = predictions[:, :self.N_species]
 
         for i in range(self.N_species):
@@ -476,7 +476,7 @@ class PINNManager:
 
     def _export_trajectories(self, trained_params, t_final, num_frames):
         """ Exports trajectory files using the trained network parameters for each species """
-        time_steps = np.linspace(0.0, t_final, num=100)
+        time_steps = np.linspace(0.0, t_final, num=num_frames)
 
         # Create basic objects:
         x_bounds = [0.0, 1.0]
@@ -512,12 +512,6 @@ class PINNManager:
                     for row in rho_grid:
                         row_as_string = ' '.join(map(str, row))
                         file.write(row_as_string + '\n')
-
-class PINNOptimizer:
-    """ Perform optimization of a Cahn-Hilliard based parameter to target specific surface-tension of LIPS, this
-    is just a placeholder currently.
-    """
-    pass
 
 
 def _read_in_energy_model(config, free_energy, CustomEnergy):
@@ -556,6 +550,7 @@ def _read_in_activation_function(activation_name: str):
         return nn.gelu
     else:
         raise Exception('ERROR: Invalid activation function name')
+
 
 if __name__ == '__main__':
     c = toml.load(r'../Examples/Landau/jax_long/input_magnetic_film.toml')

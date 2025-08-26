@@ -4,7 +4,7 @@ import matplotlib.animation as animation
 import matplotlib.widgets as widgets
 import numpy as np
 from scipy.ndimage import gaussian_filter
-import re  # Import the regular expression module
+import re
 
 def _infer_N(filepath: str) -> int:
     """ Infers the number of rows per frame of a trajectory file. """
@@ -23,21 +23,7 @@ def _infer_N(filepath: str) -> int:
     return N
 
 def animate(filepath: str, smoothen_animation: bool = True, interpolation_factor: int = 5, sigma: float = 0.0, **kwargs):
-    """
-    Creates and saves an animation from a data file with the specified format.
-
-    Args:
-        filepath (str): Path to the input file containing numerical data.
-                        The file should have frames separated by lines starting with '# step',
-                        followed by a line indicating 'size = NxN', and then N lines
-                        each containing N space-separated floating-point numbers.
-        interpolation_factor (int): Number of interpolated frames to create between
-                                     each pair of original frames.
-        sigma (float): Standard deviation for Gaussian smoothing applied to each frame.
-                       If 0.0, no smoothing is applied.
-        **kwargs: Additional keyword arguments passed to matplotlib.animation.FuncAnimation
-                  and matplotlib.axes.Axes.imshow.
-    """
+    """ Creates and saves an animation from a data file with the specified format """
     fig, ax = plt.subplots(figsize=(8, 6))
     plt.subplots_adjust(bottom=0.15)
 

@@ -6,29 +6,6 @@ from typing import Optional
 import jax
 import jax.numpy as jnp
 
-def make_laplacian_fft(dim, dx):
-    def laplacian_fft_single(phi_single):
-        # Compute FFT
-        phi_fft = jnp.fft.fftn(phi_single)
-
-        # Create frequency arrays for each dimension
-        ks = []
-        for axis, size in enumerate(phi_single.shape):
-            k = jnp.fft.fftfreq(size, dx) * 2 * jnp.pi
-            # Reshape for broadcasting
-            reshape_dims = [1] * dim
-            reshape_dims[axis] = size
-            ks.append(k.reshape(tuple(reshape_dims)))
-
-        # Compute -k^2 (Laplacian in frequency space)
-        k_squared = sum(k ** 2 for k in ks)
-
-        # Apply and transform back
-        return jnp.fft.ifftn(-k_squared * phi_fft).real
-
-    # Map over the species dimension
-    return jax.jit(jax.vmap(laplacian_fft_single))
-
 def make_laplacian_roll(dim, dx):
     def laplacian_single_species(phi):
         result = -2 * dim * phi  # center term
@@ -90,10 +67,8 @@ class Integrator:
         self._use_autodiff = config.get('use_autodiff', False)  # Use manual derivative by default
         self._interface_scalar = config.get('interface_scalar', 1.)  # Scales interface energy, defaults to 1
 
-        # Set the laplacian during init so don't need to check if's:
+        # Set the laplacian during init so don't need to check if every step
         self._cell_laplacian_fn = self._get_laplacian_function()
-
-        # Gather derivative of bulk free energy functional:
         self._dEdp = self._model.der_bulk_free_energy_autodiff if self._use_autodiff else self._model.der_bulk_free_energy
 
     def evolve(self, rho: Optional):

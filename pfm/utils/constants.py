@@ -1,7 +1,5 @@
 """
 Various constants used throughout the simulation code
-
-I also through in the Species class here used in certain modules
 """
 from typing import List, Dict, Tuple
 

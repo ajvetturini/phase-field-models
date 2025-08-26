@@ -12,10 +12,8 @@ class SemiImplicitSpectral(Integrator):
         self._dx = jnp.array(self.dx, dtype=self._float_type)
         self._dt = jnp.array(self._dt, dtype=self._float_type)
 
-        self.ndim = self._dim  # grid_shape = (Nx,) or (Nx,Ny) or (Nx,Ny,Nz)
+        self.ndim = self._dim
 
-
-        # self._dim in {1,2,3}; self._N_per_dim is int or tuple
         if isinstance(self._N_per_dim, int):
             sizes = (self._N_per_dim,) * self._dim
         else:
@@ -47,20 +45,20 @@ class SemiImplicitSpectral(Integrator):
     def _evolve_cahn_hilliard(self, rho):
         """
         Semi-implicit spectral update for Cahn–Hilliard:
-        ρ^{n+1}(k) = (ρ^n(k) - dt * M k^2 * FFT[f'(ρ^n)]) / (1 + dt * M κ k^4)
+        rho^{n+1}(k) = (rho^n(k) - dt * M k^2 * FFT[f'(rho^n)]) / (1 + dt * Mobility * Kappa * k^4)
         """
         kappa = self._interface_scalar * self._k_laplacian
 
         # Bulk derivative f'(rho) in real space
-        bulk_energy = self._dEdp(rho)  # shape: (N_species, ...)
+        bulk_energy = self._dEdp(rho)
 
-        axes = tuple(range(1, rho.ndim))  # transform over spatial axes
+        axes = tuple(range(1, rho.ndim))
         rho_hat = jnp.fft.fftn(rho, axes=axes)
         bulk_hat = jnp.fft.fftn(bulk_energy, axes=axes)
 
         # Ensure k-tensors broadcast over species
-        k2 = self._k2  # shape: (1, ...)
-        k4 = self._k4  # shape: (1, ...)
+        k2 = self._k2
+        k4 = self._k4
 
         numerator = rho_hat - self._dt * self._M * k2 * bulk_hat
         denominator = 1.0 + self._dt * self._M * kappa * k4
@@ -72,7 +70,7 @@ class SemiImplicitSpectral(Integrator):
     def _evolve_allen_cahn(self, phi):
         """
         Semi-implicit spectral update for Allen–Cahn:
-        φ^{n+1}(k) = (φ^n(k) - dt * L * FFT[f'(φ^n)]) / (1 + dt * L κ k^2)
+        phi^{n+1}(k) = (phi^n(k) - dt * L * FFT[f'(phi^n)]) / (1 + dt * L * kappa * k^2)
         """
         bulk_energy = self._dEdp(phi)  # f'(phi) in real space
 
@@ -99,9 +97,6 @@ class SemiImplicitSpectral(Integrator):
         """
         Periodic boundary conditions LaPlacian (uses roll). This is defined during base Integrator class so we don't
         need to check the if conditionals constantly
-
-        phi: shape (N_species, Ny, Nx,)
-        Returns: shape (N_species, Ny, Nx)
         """
         return self._cell_laplacian_fn(phi)
 

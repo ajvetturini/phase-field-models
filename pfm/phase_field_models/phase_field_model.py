@@ -1,4 +1,3 @@
-""" Base class of phase field model """
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -7,9 +6,6 @@ from copy import deepcopy
 
 
 class PhaseFieldModel:
-    """
-    Base class for phase field phase_field_models like Cahn-Hilliard and Allen-Cahn.
-    """
     def __init__(self, free_energy_model, config, integrator, rng, field_name, **kwargs):
         self._rng = rng
         self.N = config.get('N')
@@ -183,8 +179,6 @@ class PhaseFieldModel:
     def average_mass(self, rho: jnp.array):
         """
         Calculates the average mass density, i.e., mass per unit grid volume averaged across all bins and all species
-        rho: jnp.array of shape (N_species, **dim) (e.g., (N_species, Nx), (N_species, Nx, Ny), or
-             (N_species, Nx, Ny, Nz)
 
         This will return a single floating point value
         """
@@ -193,20 +187,8 @@ class PhaseFieldModel:
         total_volume = self.V_bin * jnp.prod(jnp.array(rho.shape[1:]))
         return total_mass / total_volume
 
-    @partial(jax.jit, static_argnums=(0,))
-    def mass_per_species(self, rho: jnp.ndarray, ):
-        return jnp.sum(rho, axis=tuple(range(1, rho.ndim))) * self.V_bin
-
     def print_species_density(self, species, output, t, rho):
-        """
-        Prints the density of a given species to the output file in a more Pythonic/NumPy way.
-
-        Args:
-            species (int): The index of the species to print.
-            output (file object): The file to write the density to.
-            t (int): The current time step.
-            rho (jnp.array): The density array with shape (N_species, *self._N_per_dim).
-        """
+        """ Prints the density of a given species to the output file  """
         size_str = "x".join([str(self.N)] * self.dim)
         output.write(f"# step = {t}, t = {t * self.dt:.5f}, size = {size_str}\n")
         rho_np = np.array(rho[species])  # Get the density of the specified species as a NumPy array
@@ -224,10 +206,6 @@ class PhaseFieldModel:
 
     def _density_to_user(self, v):
         return v / (self._distance_scaling_factor ** 3)
-
-    """
-    NotImplmentedFunctions that must be derived in instances
-    """
 
     def evolve(self, field):
         raise NotImplementedError("Evolve method must be implemented in the derived class")

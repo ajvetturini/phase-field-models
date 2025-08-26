@@ -1,6 +1,3 @@
-"""
-Allen-Cahn implementation
-"""
 import jax.numpy as jnp
 import jax
 from functools import partial
@@ -10,8 +7,6 @@ from pfm.phase_field_models.phase_field_model import PhaseFieldModel
 class AllenCahn(PhaseFieldModel):
     def __init__(self, free_energy_model, config, integrator, rng, custom_fn=None):
         # custom_fn is the initial condition function that might be specified
-        # If it is None, the below super() is fine as either initial_density or load_from would
-        # need to be specified (or an error will just occur)
         super().__init__(free_energy_model, config, integrator, rng, field_name="phi", custom_fn=custom_fn)
         self._L_phi = config.get('L_phi', 1.0)
         self.k = config.get('k', 1.0)
