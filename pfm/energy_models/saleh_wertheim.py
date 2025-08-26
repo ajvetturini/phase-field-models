@@ -87,16 +87,11 @@ class SalehWertheim(FreeEnergyModel):
         else:
             delta = self._delta_BB.delta
 
-        rho_factor = delta * (self._valence[species] * rhos[species] + self._linker_half_valence * rhos[2])
-        x = (-1. + jnp.sqrt(1. + 4. * rho_factor)) / (2. * rho_factor)
+        rho_factor = delta * (self._valence[species] * rhos[species] +
+                              self._linker_half_valence * rhos[2])
 
-        ret_val = jax.lax.cond(
-            rho_factor >= 0.,
-            lambda: jnp.log(x),
-            lambda: 0.
-        )
-
-        return ret_val
+        X = (-1.0 + jnp.sqrt(1.0 + 4.0 * rho_factor)) / (2.0 * rho_factor)
+        return jnp.where(rho_factor >= 0, jnp.log(X), 0.0)
 
     def _der_bulk_free_energy_point_autodiff(self, rhos):
         """ Calculates the bulk free energy for each point in the grid. """

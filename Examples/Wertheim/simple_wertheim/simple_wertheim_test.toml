@@ -1,0 +1,21 @@
+steps = 3e4
+print_every = 1e3
+print_trajectory_every = 1e3
+N = 64
+dt = 1e-5
+initial_density = 5e-5
+free_energy = "simple_wertheim"
+dx = 10
+k = 1e6
+use_autodiff = true
+
+[wertheim]
+valence = 4
+B2 = 2190
+
+[wertheim.delta]
+T = 303.15
+deltaH = -42200
+deltaS = -119.1
+salt = 0.5
+sticky_size = 6
