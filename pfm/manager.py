@@ -171,7 +171,8 @@ class SimulationManager:
             # Print the final state:
             self._print_current_state("last_", self._steps, rho=rho_n)
 
-        self.close()  # Close out write files (although automatic garbage collection should do this)
+        self.close()
+        return rho_n
 
     def _run_jax(self):
         """ uses evolve_n_steps and proper logging in arrays to store information """
@@ -227,6 +228,7 @@ class SimulationManager:
 
         print('Beginning write out of final files, this may take a moment...')
         self._write_output_jax_arrays(traj_log, energy_log, steps, dim_str, rho_n)
+        return rho_n
 
     def run(self, override_use_jax: bool = False):
         """ Top level method to run a simulation """
@@ -240,14 +242,12 @@ class SimulationManager:
             elif d.platform.lower() not in ['gpu', 'tpu', 'cpu']:
                 raise Exception(f'Unknown hardware device: {d.platform}')
 
-        t = time.time()
         if accelerator_found or override_use_jax:
-            self._run_jax()
+            final_rho = self._run_jax()
         else:
             # This still leverages JIT / JAX w/ performance similar to C++, but write out happens a bit more smoothly
-            self._run_cpu()
-        end = time.time()
-        return end - t
+            final_rho = self._run_cpu()
+        return final_rho
 
     def _write_output_jax_arrays(self, traj_log, energy_log, steps, dim_string, final_rho):
         """ Writes a simple ASCII file of the trajectory and energies tracked during the simulation """
@@ -368,6 +368,81 @@ class SimulationManager:
         jax.profiler.stop_trace()
         return rho_n
 
+
+class SimulationManagerNoWrite:
+    """ This is for inverse-design problems where we will need to vmap this 'environment' of sorts and thus
+     we do not want to write out any files. This is basdically a stripped down version of the SimulationManager
+     """
+    def __init__(self, config, custom_energy=None, custom_initial_condition=None):
+        self._steps = int(config.get('steps', 100))
+        self._config = config
+        self._rng_seed = int(config.get('steps', np.random.randint(1000000)))
+        self._free_energy_model = self._read_in_energy_model(config, config.get('free_energy'), custom_energy)
+        self._integrator = self._read_in_integrator(self._free_energy_model, config, config.get('integrator', 'euler'))
+        self._system = self._read_in_model(self._free_energy_model, config, config.get('model', 'ch'),
+                                           self._integrator, self._rng_seed, custom_fn=custom_initial_condition)
+
+        # Store init data from system:
+        name = 'init_' + self._system.field_name
+        self.init_field = getattr(self._system, name)
+
+    @staticmethod
+    def _read_in_energy_model(config, free_energy, CustomEnergy):
+        if free_energy.lower() == 'landau':
+            return Landau(config)
+        elif free_energy.lower() == 'simple_wertheim':
+            return SimpleWertheim(config)
+        elif free_energy.lower() == 'generic_wertheim':
+            return GenericWertheim(config)
+        elif free_energy.lower() == 'saleh' or free_energy.lower() == 'saleh_wertheim':
+            return SalehWertheim(config)
+        elif free_energy.lower() == 'custom':
+            return CustomEnergy(config)
+
+        else:
+            raise Exception(f'Invalid free_energy specified: {free_energy}, valid options are: landau, custom')
+
+    @staticmethod
+    def _read_in_model(model, config, model_name, integrator, rng_seed, custom_fn):
+        if model_name.lower() == 'ch':
+            return CahnHilliard(model, config, integrator, rng_seed, custom_fn=custom_fn)
+        elif model_name.lower() == 'ac':
+            return AllenCahn(model, config, integrator, rng_seed, custom_fn=custom_fn)
+        else:
+            raise Exception('Invalid model_name, valid options are: ch (Cahn-Hilliard), ac (Allen-Cahn)')
+
+    @staticmethod
+    def _read_in_integrator(model, config, integrator_name):
+        if integrator_name.lower() == 'euler':
+            return ExplicitEuler(model, config)
+        elif integrator_name.lower() == 'semi_implicit' or integrator_name.lower() == 'spectral':
+            return SemiImplicitSpectral(model, config)
+        else:
+            raise Exception('Invalid integrator scheme, valid options are: euler, semi_implicit (or spectral), ')
+
+    def average_free_energy(self, rho=None):
+        """ Cahn-Hilliard (or Allen-Cahn) will simply calculate this based on stored rho values """
+        return self._system.average_free_energy(rho)
+
+    def average_mass(self, rho=None):
+        """ Cahn-Hilliard (or Allen-Cahn) will simply calculate this based on stored rho values """
+        return self._system.average_mass(rho)
+
+    """
+    Main run method
+    """
+    def run_system_no_logging(self):
+        """ Simply evolve the energy model and return the final state """
+        name = 'init_' + self._system.field_name
+        rho_0 = getattr(self._system, name)  # Get initial state
+        steps = self._steps
+
+        def _evolve(_r, _):
+            _r = self._system.evolve(_r)  # Evolve state first
+            return _r, None
+
+        rho_n, _ = jax.lax.scan(_evolve, rho_0, jnp.arange(steps))
+        return rho_n
 
 
 if __name__ == '__main__':

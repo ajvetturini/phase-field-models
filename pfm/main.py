@@ -12,14 +12,10 @@ def run(config_filepath: str, override_use_jax: bool = False,
         jax.config.update("jax_enable_x64", True)
 
     # After specifying above, import the manager and run for float64 safety:
-    from pfm.manager import SimulationManager, PINNManager
+    from pfm.manager import SimulationManager
     start = time.time()
-    if c.get('use_PINN', False):
-        manager = PINNManager(c, custom_energy=custom_energy_fn, custom_initial_condition=custom_init_fn)
-        manager.solve()
-    else:
-        manager = SimulationManager(c, custom_energy=custom_energy_fn, custom_initial_condition=custom_init_fn)
-        manager.run(override_use_jax=override_use_jax)
+    manager = SimulationManager(c, custom_energy=custom_energy_fn, custom_initial_condition=custom_init_fn)
+    manager.run(override_use_jax=override_use_jax)
 
     end = time.time() - start
     minutes = int(end // 60)

@@ -20,7 +20,7 @@ class PhaseFieldModel:
         if self.dim <= 0 or self.dim > 3:
             raise Exception('Unable to proceed, currently only support for 1D, 2D, 3D is implemented')
 
-        if jnp.mod(self.N, 2) != 0.:
+        if np.mod(self.N, 2) != 0:
             raise ValueError("N should be a power of 2")
 
         num_species = free_energy_model.N_species()

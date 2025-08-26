@@ -30,7 +30,6 @@ class PatchInteraction:
         self.patches = patches if patches is not None else []
 
 
-
 # GLOBAL CONSTANTS:
 kb = 1.9872036  # i.e., ideal gas constant, used in Delta
 

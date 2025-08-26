@@ -71,10 +71,10 @@ pip install -e .
 
 ```
 # For CUDA-enabled systems:
-pip install "jax[cuda]" matplotlib toml tqdm
+pip install "jax[cuda]" matplotlib toml tqdm bayex
 
 # For CPU-only or non-Linux systems (e.g., Windows/Mac):
-pip install jax matplotlib toml tqdm
+pip install jax matplotlib toml tqdm bayex
 ```
 
 # Got questions?
