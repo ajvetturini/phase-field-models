@@ -76,58 +76,15 @@ class SimpleWertheim(FreeEnergyModel):
 
         return der_f_bond + der_f_ref
 
-    def _elementwise_bulk_free_energy(self, r0):
+    def _der_bulk_free_energy_point_autodiff(self, rhos):
         """ Calculates the bulk free energy for each point in the grid. """
-        rho_sqr = r0 * r0  # Calculate square once
-        Xr = self._X(r0)
-        # Reference energy:
-        f_ref = jnp.where(r0 < self._regularisation_delta,  # Wherever order param < 0 (gas) use the regularisation
-                          rho_sqr / (2.0 * self._regularisation_delta) + (
-                                  r0 * self._log_delta - self._regularisation_delta / 2.0
-                          ),
-                          r0 * jnp.log(r0 * self._density_conversion_factor))  # Otherwise in liquid us r0
-
-        f_ref += -r0 + self._B2 * rho_sqr
-
-        # Bond energy:
-        f_bond = jnp.where(r0 > 0.0,
-                           self._valence * r0 * (jnp.log(Xr) + 0.5 * (1.0 - Xr)),
-                           0.0
-                           )
-
-        return f_ref + f_bond
-
-    def _total_bulk_free_energy(self, rho_species):
-        return jnp.sum(self._elementwise_bulk_free_energy(rho_species))
+        return jax.grad(self.bulk_free_energy)(rhos)  # shape (N_species,)
 
     @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy_autodiff(self, rho):
+    def der_bulk_free_energy_autodiff(self, rhos):
         """ Uses autodiff to evaluate the bulk_free_energy term """
-        def _bulk_free_energy(r0):
-            rho_sqr = r0 * r0  # Calculate square once
-
-            # Reference energy:
-            f_ref = jnp.where(r0 < self._regularisation_delta,  # Wherever order param < 0 (gas) use the regularisation
-                              rho_sqr / (2.0 * self._regularisation_delta) + (
-                                      r0 * self._log_delta - self._regularisation_delta / 2.0
-                              ),
-                              r0 * jnp.log(r0 * self._density_conversion_factor))  # Otherwise in liquid us r0
-
-            f_ref += -r0 + self._B2 * rho_sqr
-
-            # Bond energy:
-            f_bond = jnp.where(r0 > 0.0,
-                               self._valence * r0 * (jnp.log(self._X(r0)) + 0.5 * (1.0 - self._X(r0))),
-                               0.0
-                               )
-
-            return f_ref + f_bond
-
-        rho = rho[0]  # One species, otherwise would need to vmap over, this is now a (N, N) array
-        grad_bulk = jax.grad(_bulk_free_energy)
-        per_element_grad_2d = jax.vmap(jax.vmap(grad_bulk))
-        result_2d = per_element_grad_2d(rho)
-        return jnp.expand_dims(result_2d, axis=0)
-
-
+        # rhos is shape (N_species, Nx, Ny)
+        rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])  # shape (Nx*Ny, N_species)
+        out = jax.vmap(self._der_bulk_free_energy_point_autodiff)(rhos_flat)
+        return out.T.reshape(rhos.shape)
 

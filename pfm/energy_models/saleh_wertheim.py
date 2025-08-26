@@ -100,9 +100,7 @@ class SalehWertheim(FreeEnergyModel):
         # Reshape so vmapped function sees (Nx*Ny, N_species)
         rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])  # shape (Nx*Ny, N_species)
         out = jax.vmap(self._der_bulk_free_energy_point)(rhos_flat)  # shape (Nx*Ny, N_species)
-
         return out.T.reshape(rhos.shape)
-
 
     def _der_bulk_free_energy_point_autodiff(self, rhos):
         """ Calculates the bulk free energy for each point in the grid. """
