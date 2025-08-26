@@ -31,6 +31,7 @@ class SalehWertheim(FreeEnergyModel):
         return 3
 
     def bonding_energy(self, total_rhos):
+        # Note that this term is specific to the Saleh system and
         rho_factor = self._delta_AA.delta * (self._valence[0] * total_rhos[0] +
                                              self._linker_half_valence * total_rhos[2])
         X1A = (-1.0 + jnp.sqrt(1.0 + 4.0 * rho_factor)) / (2.0 * rho_factor)
@@ -49,7 +50,6 @@ class SalehWertheim(FreeEnergyModel):
 
     @partial(jax.jit, static_argnums=(0,))
     def bulk_free_energy(self, rhos):
-        # rhos is shape (N_species,)
         rtot = jnp.sum(rhos)
 
         # mixing entropy
@@ -65,7 +65,7 @@ class SalehWertheim(FreeEnergyModel):
         return f_ref + self.bonding_energy(rhos)
 
     @partial(jax.jit, static_argnums=(0,))
-    def _der_bulk_free_energy_point(self, rhos):
+    def der_bulk_free_energy(self, rhos):
         rho_tot = jnp.sum(rhos)
 
         # reference part
@@ -81,25 +81,22 @@ class SalehWertheim(FreeEnergyModel):
 
         return der_f_ref + der_f_bond
 
-    def _der_contribution(self, rhos, species: int):
+    def _der_contribution(self, rhos, species):
         if species == 0:
             delta = self._delta_AA.delta
         else:
             delta = self._delta_BB.delta
 
-        rho_factor = delta * (self._valence[species] * rhos[species] +
-                              self._linker_half_valence * rhos[2])
+        rho_factor = delta * (self._valence[species] * rhos[species] + self._linker_half_valence * rhos[2])
+        x = (-1. + jnp.sqrt(1. + 4. * rho_factor)) / (2. * rho_factor)
 
-        X = (-1.0 + jnp.sqrt(1.0 + 4.0 * rho_factor)) / (2.0 * rho_factor)
+        ret_val = jax.lax.cond(
+            rho_factor >= 0.,
+            lambda: jnp.log(x),
+            lambda: 0.
+        )
 
-        return jnp.where(rho_factor >= 0, jnp.log(X), 0.0)
-
-    @partial(jax.jit, static_argnums=(0,))
-    def der_bulk_free_energy(self, rhos):
-        # Reshape so vmapped function sees (Nx*Ny, N_species)
-        rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])  # shape (Nx*Ny, N_species)
-        out = jax.vmap(self._der_bulk_free_energy_point)(rhos_flat)  # shape (Nx*Ny, N_species)
-        return out.T.reshape(rhos.shape)
+        return ret_val
 
     def _der_bulk_free_energy_point_autodiff(self, rhos):
         """ Calculates the bulk free energy for each point in the grid. """
@@ -108,7 +105,6 @@ class SalehWertheim(FreeEnergyModel):
     @partial(jax.jit, static_argnums=(0,))
     def der_bulk_free_energy_autodiff(self, rhos):
         """ Uses autodiff to evaluate the bulk_free_energy term """
-        # rhos is shape (N_species, Nx, Ny)
         rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])
         out = jax.vmap(self._der_bulk_free_energy_point_autodiff)(rhos_flat)
         return out.T.reshape(rhos.shape)
