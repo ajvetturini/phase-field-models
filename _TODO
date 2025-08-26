@@ -1,7 +1,0 @@
-TODO Implementation List
-
--> Float32 vs Float64 is the biggest issue with Wertheim models. Is there a mathematically robust way to handle this?
--> Remaining energy models
--> Clean up codebase / comments
--> Finish 3D support + analysis files + clean up analysis creation a bit? Like make formatting a bit easier? idk
--> Try and do a meta-optimization of beta-K in the tension simulations
