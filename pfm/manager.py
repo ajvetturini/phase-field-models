@@ -129,7 +129,7 @@ class SimulationManager:
     def _run_cpu(self):
         """ Main function of the Simulation Manager, runs the simulation. This is a "slow run" which does not leverage
          jax outside of jit-ting the process. This should result in similar to CPU based C++ implementation
-         (but only for flaot32), but is not well-suited for very large (1e9-1e10) timestep simulations
+         (but only for float32), but is not well-suited for very large (1e9-1e10) timestep simulations
          """
         if self._steps > 1e6:
             print('WARNING: CPU based phase field model will run quite slowly!')
@@ -143,16 +143,15 @@ class SimulationManager:
         name = 'init_' + self._system.field_name
         rho_0 = getattr(self._system, name)  # Error will raise if not specified
 
-        if self._config.get('verbose', True):
-            self._print_current_state("init_", 0, rho=rho_0)
+        self._print_current_state("init_", 0, rho=rho_0)
         fp = os.path.join(self._write_path, 'energy.dat')
         rho_n = rho_0  # init
         with open(fp, "w") as mass_output:
             for t in range(self._steps):
-                if self._should_print_last(t) and self._config.get('verbose', True):
+                if self._should_print_last(t):
                     self._print_current_state("most_recent_", t, rho=rho_n)
 
-                if self._should_print_traj(t) and self._config.get('verbose', True):
+                if self._should_print_traj(t):
                     num_species = self._free_energy_model.N_species()
                     for i in range(num_species):
                         self._system.print_species_density(i, self._trajectories[i], t, rho_n)
@@ -168,9 +167,7 @@ class SimulationManager:
 
                 rho_n = self._system.evolve(rho_n)
 
-        if self._config.get('verbose', True):
-            # Print the final state:
-            self._print_current_state("last_", self._steps, rho=rho_n)
+        self._print_current_state("last_", self._steps, rho=rho_n)
 
         self.close()
         return rho_n
@@ -206,7 +203,7 @@ class SimulationManager:
         current_step = 0
         while current_step < self._steps:
             # Determine how many steps to take in the next block
-            if self._config.get('verbose', True):
+            if self._config.get('verbose', False):
                 print(f'Beginning step {current_step}')
             remaining_steps = self._steps - current_step
             num_steps_to_run = min(log_every, remaining_steps)
