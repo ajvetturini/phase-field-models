@@ -3,3 +3,4 @@ matplotlib>=3.9.3
 numpy==2.2.4
 toml==0.10.2
 bayex==0.2.2
+optax==0.2.4
