@@ -29,6 +29,7 @@ class SimulationManager:
 
         self._config = config
         self._write_path = config.get('write_path', r'./')  # Assumes same directory writing by default
+        os.makedirs(self._write_path, exist_ok=True)
 
         # Set RNG:
         self._rng_seed = int(config.get('steps', np.random.randint(1000000)))
