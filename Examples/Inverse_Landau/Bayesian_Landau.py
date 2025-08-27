@@ -84,7 +84,7 @@ if __name__ == "__main__":
         write_location='',
         num_iterations=8,
         num_initial_points=4,
-        batch_size=2,
+        batch_size=8,
         parameter_bounds={'epsilon': (0.1, 20.0)},
         verbose=True
     )

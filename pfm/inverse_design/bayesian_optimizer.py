@@ -36,6 +36,13 @@ class BOObjective(abc.ABC):
             jax.vmap(jax.value_and_grad(loss_fn_with_static_data))
         )
 
+        self._value_no_grad_fn = jax.jit(
+            loss_fn_with_static_data
+        )
+        self._vmapped_value_no_grad_fn = jax.jit(
+            jax.vmap(loss_fn_with_static_data)
+        )
+
         self._float_dtype = jnp.float64 if (float_type.lower() == 'float64') else jnp.float32
 
     @abc.abstractmethod
@@ -70,10 +77,12 @@ class BOObjective(abc.ABC):
         """
         pass
 
-    def evaluate(self, params: Dict[str, float]) -> Tuple[float, Dict[str, float]]:
+    def evaluate_with_grads(self, params: Dict[str, float]) -> Tuple[float, Dict[str, float]]:
         """
         Evaluates the loss and gradient for a single set of parameters.
         This is the primary interface for a standard, sequential BO loop.
+
+        NOTE: This becomes VERY memory intensive!
 
         Args:
             params: A dictionary of standard Python floats for the parameters
@@ -82,14 +91,16 @@ class BOObjective(abc.ABC):
             A tuple of (loss, gradient_dict).
         """
         params_jnp = {k: jnp.array(v) for k, v in params.items()}
-        loss, grad_jnp = self._value_and_grad_fn(params_jnp)
+        loss, grad_jnp = self._value_and_grad_fn(params_jnp, compute_grad=False)
         grad_py = {k: v.item() for k, v in grad_jnp.items()}
         return loss.item(), grad_py
 
-    def evaluate_batch(self, params_batch: List[Dict[str, float]]) -> Tuple[List[float], List[Dict[str, float]]]:
+    def evaluate_batch_with_grads(self, params_batch: List[Dict[str, float]]) -> Tuple[List[float], List[Dict[str, float]]]:
         """
         Evaluates a batch of parameter sets in parallel using vmap.
         This is the interface for a parallelized BO scheduler.
+
+        NOTE: This becomes VERY memory intensive!
 
         Args:
             params_batch: A list of parameter dictionaries.
@@ -104,6 +115,40 @@ class BOObjective(abc.ABC):
         num_items = len(params_batch)
         grads_py = [{k: v[i].item() for k, v in grads_jnp.items()} for i in range(num_items)]
         return losses_jnp.tolist(), grads_py
+
+    def evaluate_without_grads(self, params: Dict[str, float]) -> Tuple[float, Dict[str, float]]:
+        """
+        Evaluates the loss and gradient for a single set of parameters.
+        This is the primary interface for a standard, sequential BO loop.
+
+        Args:
+            params: A dictionary of standard Python floats for the parameters
+
+        Returns:
+            A tuple of (loss, {}).
+        """
+        params_jnp = {k: jnp.array(v) for k, v in params.items()}
+        loss = self._value_no_grad_fn(params_jnp)
+        return loss.item(), {}
+
+    def evaluate_batch_without_grads(self, params_batch: List[Dict[str, float]]) -> Tuple[
+        List[float], List[Dict[str, float]]]:
+        """
+        Evaluates a batch of parameter sets in parallel using vmap.
+        This is the interface for a parallelized BO scheduler.
+
+        Args:
+            params_batch: A list of parameter dictionaries.
+
+        Returns:
+            A tuple of (list_of_losses, {}).
+        """
+        if not params_batch:
+            return [], []
+        pytree = {k: jnp.array([d[k] for d in params_batch]) for k in params_batch[0]}
+        losses_jnp = self._vmapped_value_no_grad_fn(pytree)
+        return losses_jnp.tolist(), {}
+
 
 @dataclass
 class BOArgs:
@@ -162,7 +207,7 @@ def run_bayesian_optimization(objective: BOObjective, args: BOArgs, visualize_gp
     batches = [initial_points_dicts[i:i + args.batch_size] for i in range(0, len(initial_points_dicts), args.batch_size)]
     all_losses = []
     for b in batches:
-        initial_losses, _ = objective.evaluate_batch(b)
+        initial_losses, _ = objective.evaluate_batch_without_grads(b)
         all_losses.extend(initial_losses)
 
     opt_state = optimizer.init(all_losses, params)
@@ -172,8 +217,8 @@ def run_bayesian_optimization(objective: BOObjective, args: BOArgs, visualize_gp
         if args.verbose:
             print(f'Beginning iteration {i}')
         key = jax.random.fold_in(loop_key, i)
-        new_params = optimizer.sample(key, opt_state)                # TODO: Create custom sampler for batch evals??
-        losses, grads = objective.evaluate(new_params)
+        new_params = optimizer.sample(key, opt_state)
+        losses, _ = objective.evaluate_without_grads(new_params)
         _store(observed_data, new_params, losses)
         opt_state = optimizer.fit(opt_state, losses, new_params)
 
@@ -295,7 +340,7 @@ def run_bayesian_optimization_skopt(objective: BOObjective, args: BOArgs):
             print(f'Beginning iteration {i}')
         next_points_list = optimizer.ask(n_points=args.batch_size)  # Get next set of points to evaluate
         next_points_dicts = [dict(zip(param_names, p)) for p in next_points_list]
-        losses, grads = objective.evaluate_batch(next_points_dicts)
+        losses, _ = objective.evaluate_batch_without_grads(next_points_dicts)
 
         # Note: Look to use something like BoTorch to use the gradient information instead, right now scikit-optimize
         # does not use this information natively

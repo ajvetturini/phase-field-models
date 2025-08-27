@@ -431,18 +431,34 @@ class SimulationManagerNoWrite:
     """
     Main run method
     """
+
     def run_system_no_logging(self):
-        """ Simply evolve the energy model and return the final state """
-        name = 'init_' + self._system.field_name
-        rho_0 = getattr(self._system, name)  # Get initial state
+        rho_0 = getattr(self._system, 'init_' + self._system.field_name)
         steps = self._steps
 
         def _evolve(_r, _):
-            _r = self._system.evolve(_r)  # Evolve state first
+            _r = self._system.evolve(_r)
             return _r, None
 
-        rho_n, _ = jax.lax.scan(_evolve, rho_0, jnp.arange(steps))
-        return rho_n
+        rho_final, _ = jax.lax.scan(_evolve, rho_0, jnp.arange(steps))
+        return rho_final
+
+    """
+    def run_system_no_logging(self):
+        rho_0 = getattr(self._system, 'init_' + self._system.field_name)
+        steps = self._steps
+
+        @jax.remat
+        def step_fn(r):
+            return self._system.evolve(r)
+
+        def _evolve(_r, _):
+            _r = step_fn(_r)
+            return _r, None
+
+        rho_final, _ = jax.lax.scan(_evolve, rho_0, None, length=steps)
+        return rho_final
+    """
 
 
 if __name__ == '__main__':
