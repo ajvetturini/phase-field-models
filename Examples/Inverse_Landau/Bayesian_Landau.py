@@ -88,7 +88,7 @@ if __name__ == "__main__":
         parameter_bounds={'epsilon': (0.1, 20.0)},
         verbose=True
     )
-    # carry = run_bayesian_optimization(objective, bo_args)
-    carry = run_parallel_bayesian_optimization(objective, bo_args)
+    carry = run_bayesian_optimization(objective, bo_args)
+    # carry = run_parallel_bayesian_optimization(objective, bo_args)
     best_loss, best_param = carry
     print(f'Optimal epsilon: {best_param["epsilon"]}')

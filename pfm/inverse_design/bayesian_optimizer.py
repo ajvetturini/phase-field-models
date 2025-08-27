@@ -477,5 +477,5 @@ def run_parallel_bayesian_optimization(objective: BOObjective, args: BOArgs, vis
         print(f"Bayesian Optimization finished...")
         print(f"  - Predicted eval at optimum: {final_sim_eval_value.item():.4f}")
 
-    _visualize_gp(opt_state, args, final_location, False)
+    _visualize_gp(opt_state, args, final_location, visualize_gp)
     return best_result, best_params_dict
