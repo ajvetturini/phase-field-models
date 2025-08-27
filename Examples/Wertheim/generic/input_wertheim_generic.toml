@@ -1,0 +1,63 @@
+steps = 100
+print_every = 10
+print_trajectory_every = 10
+N = 64
+dt = 1e-6
+initial_density = 2e-5
+free_energy = "generic_wertheim"
+dx = 10
+k = 1e6
+seed = 123456
+use_autodiff = true
+
+[generic_wertheim]
+allow_unspecified_B2s = false
+
+[[generic_wertheim.species]]
+patches = [0, 0, 0, 0]
+
+[[generic_wertheim.species]]
+patches = [1, 1, 1, 1]
+
+[[generic_wertheim.species]]
+patches = [0, 0, 1, 1]
+
+[[generic_wertheim.B2s]]
+interaction = "0-0"
+value = 2190
+
+[[generic_wertheim.B2s]]
+interaction = "1-1"
+value = 2190
+
+[[generic_wertheim.B2s]]
+interaction = "2-2"
+value = 2190
+
+[[generic_wertheim.B2s]]
+interaction = "0-1"
+value = 2190
+
+[[generic_wertheim.B2s]]
+interaction = "0-2"
+value = 2190
+
+[[generic_wertheim.B2s]]
+interaction = "1-2"
+value = 2190
+
+[[generic_wertheim.deltas]]
+interaction = "0-0"
+T = 293.15
+deltaH = -42200
+deltaS = -119.1
+salt = 0.5
+sticky_size = 6
+
+[[generic_wertheim.deltas]]
+interaction = "1-1"
+T = 293.15
+deltaH = -42400
+deltaS = -120.6
+salt = 0.5
+sticky_size = 6
