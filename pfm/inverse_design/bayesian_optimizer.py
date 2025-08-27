@@ -292,11 +292,21 @@ def _visualize_gp(opt_state, observed_data: dict, args: BOArgs, final_location: 
         plt.fill_between(x_plot.flatten(), mean - 1.96 * std, mean + 1.96 * std,
                          color='blue', alpha=0.15, label='95% Confidence Interval')
 
-        x_observed, y_observed = np.array(observed_data[p]['x']), np.array(observed_data[p]['y'])
+        # x_observed, y_observed = np.array(observed_data[p]['x']), np.array(observed_data[p]['y'])
+        x_observed, y_observed = np.array(opt_state.params[p]), np.array(opt_state.ys)
+        mask = np.array(opt_state.mask)
+        x_observed = x_observed[mask]
+        y_observed = y_observed[mask]
         plt.plot(x_observed, y_observed, 'ko', markersize=8, label='Observations')
 
-        best_x = x_observed[np.argmin(y_observed)]
-        best_y = np.min(y_observed)
+
+        if args.maximize:
+            best_x = x_observed[np.argmax(y_observed)]
+            best_y = np.max(y_observed)
+        else:
+            best_x = x_observed[np.argmin(y_observed)]
+            best_y = np.min(y_observed)
+
         plt.plot(best_x, best_y, 'y*', markersize=15, markeredgecolor='k', label=f'Best Found: {best_x:.2f}')
 
         plt.title('Bayesian Optimization of Epsilon Parameter')
