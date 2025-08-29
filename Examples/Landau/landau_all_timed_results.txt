@@ -1,0 +1,6 @@
+Landau Results (times reported in seconds)
+euler_autodiff | 114.33711576461792
+euler_noautodiff | 113.29281520843506
+spectral_noautodiff | 354.9100708961487
+spectral_autodiff | 352.514853477478
+cuda | 96.00566530227661
