@@ -9,7 +9,7 @@ model = 'CH'
 use_autodiff = true
 interface_scalar = 2.0
 initial_density = 0.01
-float_type = "float32"
+float_type = "float64"  # MUST BE FLOAT64 (float32 fails with explicit euler!)
 write_path = "/mnt/nvme/home/avetturi/phase-field-models/Examples/Landau/euler_autodiff"
 load_from = "/mnt/nvme/home/avetturi/phase-field-models/Examples/Landau/standard_input.dat"
 

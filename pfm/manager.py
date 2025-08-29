@@ -29,11 +29,12 @@ class SimulationManager:
 
         self._config = config
         self._write_path = config.get('write_path', r'./')  # Assumes same directory writing by default
+        self._float_dtype = jnp.float64 if config.get('float_type', 'float32') == 'float64' else jnp.float32
         os.makedirs(self._write_path, exist_ok=True)
 
         # Set RNG:
-        self._rng_seed = int(config.get('steps', np.random.randint(1000000)))
-        if 'steps' not in config:
+        self._rng_seed = int(config.get('seed', np.random.randint(1000000)))
+        if 'seed' not in config:
             print(f'RNG seed not specified, using seed: {self._rng_seed}')
 
         # Setup the free energy model, integrator, and system based on if jax is being used:
@@ -191,7 +192,7 @@ class SimulationManager:
 
         # Setup logs:
         energy_log = [self._log_energy(0, rho_n)]
-        traj_log = [np.array(rho_n, dtype=np.float32)]
+        traj_log = [np.array(rho_n, dtype=np.float32)]  # Convert -> float32 for export
         steps = [0]
 
         # Logging intervals:
@@ -314,7 +315,7 @@ class SimulationManager:
             self.average_free_energy(r),
             self.average_mass(r),
             count
-        ], dtype=jnp.float32)
+        ], dtype=self._float_dtype)
         return energy_values
 
     def run_system_no_logging(self, steps: int = None):
