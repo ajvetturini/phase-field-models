@@ -149,7 +149,11 @@ class PhaseFieldModel:
             print('NOTE: 64-bit precision specified, operations will be slow if not on double precision specific '
                   'hardware. Even then, the roll laplacian is quite slow.')
         setattr(self, f"init_{self.field_name}", jnp.array(initial_field, dtype=dtype))
-        self._grad_diff_method = config.get('pfm_diff_method', 'central')  # Forward or central difference in gradient
+
+        # Central differences can be "bad" for explicit euler and can blow up the energy calculations, so
+        # forward difference is used for stability by default (but can be switched)
+        # Should look into this a bit more when time arieses
+        self._grad_diff_method = config.get('pfm_diff_method', 'fwd')
 
     def get_initial_condition(self):
         """
