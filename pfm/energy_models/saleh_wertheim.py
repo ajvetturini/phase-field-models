@@ -69,17 +69,22 @@ class SalehWertheim(FreeEnergyModel):
         rho_tot = jnp.sum(rhos)
 
         # reference part
-        der_f_ref = jnp.log(rhos) + 2.0 * self._B2 * rho_tot + 3.0 * self._B3 * rho_tot ** 2
+        epsilon = 1e-20
+        safe_rhos = jnp.maximum(rhos, epsilon)
+        der_f_ref = jnp.log(safe_rhos) + 2.0 * self._B2 * rho_tot + 3.0 * self._B3 * rho_tot ** 2
 
         # bonding part
         der_f_bond = jnp.zeros_like(rhos)
-        der_f_bond = der_f_bond.at[0].set(self._valence[0] * self._der_contribution(rhos, 0))
-        der_f_bond = der_f_bond.at[1].set(self._valence[1] * self._der_contribution(rhos, 1))
-        der_f_bond = der_f_bond.at[2].set(self._linker_half_valence *
-                                          (self._der_contribution(rhos, 0) +
-                                           self._der_contribution(rhos, 1)))
+        contribution_species_0 = self._der_contribution(safe_rhos, 0)
+        contribution_species_1 = self._der_contribution(safe_rhos, 1)
+        der_f_bond = der_f_bond.at[0].set(self._valence[0] * contribution_species_0)
+        der_f_bond = der_f_bond.at[1].set(self._valence[1] * contribution_species_1)
+        der_f_bond = der_f_bond.at[2].set(self._linker_half_valence * (contribution_species_0 + contribution_species_1))
 
-        return der_f_ref + der_f_bond
+        # Combine and if a species has ~0 density, its chemical potential derivative will be 0:
+        total_der_bulk = der_f_ref + der_f_bond
+        safe_der_bulk = jnp.where(rhos > 0, total_der_bulk, 0.0)
+        return safe_der_bulk
 
     def _der_contribution(self, rhos, species):
         if species == 0:
