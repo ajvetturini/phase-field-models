@@ -66,7 +66,7 @@ class SalehWertheim(FreeEnergyModel):
 
     @partial(jax.jit, static_argnums=(0,))
     def der_bulk_free_energy(self, rhos):
-        rho_tot = jnp.sum(rhos)
+        rho_tot = jnp.sum(rhos, axis=0, keepdims=True)
 
         # reference part
         epsilon = 1e-20
