@@ -42,24 +42,15 @@ class ExplicitEuler(Integrator):
 
         lap_rho = laplacian(rho)
         chemical_potential = bulk_energy - (self._interface_scalar * self._k_laplacian * lap_rho)
-        lap_d_rho = laplacian(chemical_potential)
+        lap_mu = laplacian(chemical_potential)
 
-        return rho + self._M * lap_d_rho * self._dt
+        return rho + self._M * lap_mu * self._dt
 
     @partial(jax.jit, static_argnums=(0, ))
     def _evolve_allen_cahn(self, phi):
         """ Explicit Euler step for Allen-Cahn """
-        local_rhos_per_bin = self.get_local_rho_species(phi, self.bin_indices)  # Shape: (N_bins, N_species)
-
-        def bulk_term_for_bin(local_rho):
-            return jax.vmap(self._dEdp, in_axes=(0, None))(
-                jnp.arange(self._model.N_species()), local_rho
-            )
-
-        bulk_term_scalar = jax.vmap(bulk_term_for_bin)(local_rhos_per_bin)
-        bulk_energy = bulk_term_scalar.reshape((self._model.N_species(),) + phi.shape[1:])
-
-        lap_phi = self._cell_laplacian(phi)  # shape: (N_species, Nx, Ny)
+        bulk_energy = self._dEdp(phi)
+        lap_phi = self._cell_laplacian(phi)
         interface_energy = self._interface_scalar * self._k_laplacian * lap_phi
         energy_difference = bulk_energy - interface_energy
 
