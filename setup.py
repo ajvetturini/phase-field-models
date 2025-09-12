@@ -20,8 +20,8 @@ setuptools.setup(
     install_requires=required_packages, 
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",  # Replace with your license
+        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.12',  # Specify the minimum Python version your library supports
+    python_requires='>=3.12',
 )
