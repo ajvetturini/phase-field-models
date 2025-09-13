@@ -1,8 +1,6 @@
 # Phase Field Modelling using JAX
 
-Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model algorithms (inspired from https://github.com/lorenzo-rovigatti/cahn-hilliard) alongside [reproduced results](#performance-comparison). The output of this phase field package (i.e., the resultant mass / energy log and order parameter trajectory) are formatted similarly to the cahn-hilliard package, and here I also implemented the Allen-Cahn model. Overall, if you are unfamiliar with phase fields / other mesoscopic simulations, I'd recommend reading Ch 12 and 13 of Introduction to Computational Materials Science by Richard Lesar.
-
-Furthermore, this package enables **automatic differentiation** to be leveraged for rapid development of new free energy models. Also, a **Bayesian Optimizer** is implemented and allows you to optimize parameter(s) of a free energy model to target a specified behavior (see [Inverse Design](#inverse-design)) section below)
+Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model algorithms (inspired from https://github.com/lorenzo-rovigatti/cahn-hilliard) alongside [reproduced results](#performance-comparison). The output of this phase field package (i.e., the resultant mass / energy log and order parameter trajectory) are formatted similarly to the cahn-hilliard package, and here I also implemented the Allen-Cahn model. Furthermore, this package enables **automatic differentiation** to be leveraged for rapid development of new free energy models. Overall, if you are unfamiliar with phase fields / other mesoscopic simulations, I'd recommend reading Ch 12 and 13 of Introduction to Computational Materials Science by Richard Lesar.
 
 Overall, this library has a focus on grid-based phase field modelling for self-assembly based systems, whereas other phase field model implementations (e.g., such as [JAX-AM](https://github.com/tianjuxue/jax-am)) focus on looking at grain development for additive manufacturing where the mesh quality is of greater importance. 
 
@@ -48,14 +46,6 @@ The spectral / semi-implicit method is quite slow compared to a simple explicit 
 Finally, float32 precision in this JAX-based simulator is not enough for simple / saleh wertheim models (as shown in the trajectory animations below). The simulation minimizes the free energy until the (lack of) floating precision prevents further minimization, thus "stalling out" the simulation. This is scene by comparing the JAX-float32 trajectory (second row, third column) and comparing it to the JAX-float64 / CUDA implementations (second row, first and second columns).
 
 Add Animations Here!
-
-# Inverse Design
-
-Phase field simulations are computationally expensive, especially when using free energy models like the Saleh-Wertheim model. It would be desirable to optimize a parameter in the free energy model (e.g., $\epsilon$ in the Landau) to achieve a targetted behaviour. To accomplish this, a vectorized set of simulations leveraging JAX can be used alongside Bayesian Optimization. Here, I parallize the sampling process as the actual simulations are not RAM-expensive (just time expensive), so many simulations can be conducted "in parallel" to optimize the underlying Gaussian Process of the specified parameters through Bayesian Optimization.
-
-You must specify a targeted [BOOptimization Function](https://github.com/ajvetturini/phase-field-models/blob/main/pfm/inverse_design/bayesian_optimizer.py) to perform this task. You should be careful in how many parameters you optimize for, as traditional Bayesian Optimziation is not really well-suited to very high dimensionality. A very simple example is shown [here](https://github.com/ajvetturini/phase-field-models/blob/main/Examples/Inverse_Landau/Bayesian_Landau.py) where $\epsilon$ is optimized for a target well width.
-
-Image Coming soon!
 
 
 # Descriptions of input TOML Options

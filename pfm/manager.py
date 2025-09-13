@@ -368,9 +368,7 @@ class SimulationManager:
 
 
 class SimulationManagerNoWrite:
-    """ This is for inverse-design problems where we will need to vmap this 'environment' of sorts and thus
-     we do not want to write out any files. This is basdically a stripped down version of the SimulationManager
-     """
+    """ SimulationManger without write capabilites for vectorizing many simulations """
     def __init__(self, config, custom_energy=None, custom_initial_condition=None):
         self._steps = int(config.get('steps', 100))
         self._config = config
