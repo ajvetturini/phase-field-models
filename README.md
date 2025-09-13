@@ -57,6 +57,43 @@ You must specify a targeted [BOOptimization Function](https://github.com/ajvettu
 
 Image Coming soon!
 
+
+# Descriptions of input TOML Options
+
+**Simulation Options**
+- `steps` (integer) : Number of integration steps to use in simulation
+- `print_every` (integer) : Frequency to output the energy of the system
+- `print_trajectory_every` (integer) : Frequency to output the per-species densities to a trajectory file for animations
+- `seed` (integer) : Random seed for reproducibility
+- `free_energy` (str) : The free energy model to use (see [Implementation Details](#implementation-details))
+- `integrator` (str, default=`euler`) : Which time integration scheme to use (see [Implementation Details](#implementation-details))
+- `model` (str, default = `ch`) : Which phase field model to use (either `ch` (Cahn-Hilliard) or `ac` (Allen-Cahn))
+- `N` (int, default = `64`) : Linear size of the grid-based system (and must be a power of 2). Note that the grids are constant (dx = dy) in this simulator
+- `k` (float, default = `1.0`) : Coefficient linked to free energy penalty at the interface of two phases
+- `interface_scalar` (float, default = `1.0`) : A secondary coefficient linked to free energy penalty at interface. This can be modified based on your preferred derivation of Cahn-Hilliard (for example, in Saleh-Wertheim simulations, this should be set to 2.0)
+- `M` (float, default = `1.0`) : Mobility coefficient for use in Cahn-Hilliard
+- `L_phi` (float, default = `1.0`) : Kinetic coefficient for use in Allen-Cahn
+- `dt` (float, default = `0.001`) : Integration time step
+- `dx` (int, default = `1`) : Linear size of bins (nanometers)
+- `dim` (int, default = `2`) : Dimensionality of system (either 1 or 2)
+- `distance_scaling_factor` (int, default=`1`) : Numerical factor to internall rescale lengths (may increase stability)
+- `write_path` (str) : Where to write output files to (defaults to run path)
+- `pfm_diff_method` (str, default = `fwd`) : Forward or Central differences to use in spatial evolution (valid options are fwd or central)
+
+**Initial Condition Options**
+- `load_from` (str) : Filepath to initial configuration to use
+- `initial_density` (float) : If not using load_from, you must specify an initial density for initial condition
+  - `initial_A` (float, default = `0.001`) : Amplitude of sinusoidal modulation used in default initial condition densities
+  - `initial_N_peaks` (int, default = `0`) : Number of oscillations across domain
+
+**JAX-based Options**
+
+Note: You must use the pfm.main.run() function to properly use these, as the sequence of imports matters.
+- `float_type` (str, default = `float32`) : Floating precision to use (either float32 or float64)
+- `use_autodiff` (bool, default = `False`) : Use automatic differentiation for the bulk free energy term during time integration
+- `XLA_PYTHON_CLIENT_MEM_FRACTION` (float) : Limit the amount of GPU memory that JAX uses 
+- `CUDA_VISIBLE_DEVICES` (int) : GPU Device ID that JAX will use 
+
 # Package Requirements
 
 This project requires Python 3.12. Due to the rapid development of JAX, it is strongly recommended to install dependencies in a clean Python 3.12 virtual environment. The following instructions assume you are using `conda`.

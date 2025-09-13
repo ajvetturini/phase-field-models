@@ -69,33 +69,26 @@ def compute_surface_tension_mechanical(rho_grid, kappa, show_plot: bool = False)
     Estimate surface tension gamma using the direct integral of the interfacial energy density.
     This method is numerically stable and highly recommended for droplet systems.
     """
-    # 1. Calculate the gradient of the density field for the first species
-    # Assuming ch.gradient(rho) returns a tensor of shape (N_species, N_dim, Nx, Ny)
+    # Calculate the gradient of the density field for the first species
     grad_rho = ch.gradient(rho_grid)[0]  # Shape: (N_dim, Nx, Ny)
 
-    # 2. Calculate the squared magnitude of the gradient at each point
+    # Calculate the squared magnitude of the gradient at each point
     grad_rho_sq = jnp.sum(grad_rho ** 2, axis=0)  # Sum over the spatial dimensions (x, y)
 
-    # 3. Integrate the interfacial energy density (kappa * |∇ρ|²) over the domain
+    # Integrate the interfacial energy density (kappa * |∇ρ|²) over the domain
     total_interfacial_energy = jnp.sum(kappa * grad_rho_sq) * dx * dx
 
-    # 4. Calculate the total interface length (perimeter of all droplets)
-    # Your method is a reasonable first approximation.
+    # Calculate the total interface length (perimeter of all droplets)
     species_0 = rho_grid[0]
     rho_min, rho_max = species_0.min(), species_0.max()
     threshold = 0.5 * (rho_min + rho_max)
     liquid_mask = species_0 >= threshold
     gas_mask = species_0 < threshold
 
-    # Using scipy for a slightly more accurate perimeter estimation than pixel counting
     from scipy.ndimage import binary_erosion
     interface_mask = liquid_mask & ~binary_erosion(liquid_mask)
     L_total = jnp.sum(interface_mask) * dx  # Approximate total perimeter
 
-    # For higher accuracy, consider using a contour-finding algorithm
-    # from skimage.measure import find_contours, perimeter
-    # contours = find_contours(liquid_mask, 0.5)
-    # L_total = sum(perimeter(c, neighborhood=4) for c in contours) * dx
 
     # Avoid division by zero if no interface is present
     if L_total == 0:
@@ -129,10 +122,43 @@ def compute_surface_tension_mechanical(rho_grid, kappa, show_plot: bool = False)
 
     return gamma
 
+def compute_surface_tension_gradient_weighted(rho_grid, kappa):
+    """
+    Estimate the surface tension gamma for a Cahn-Hilliard droplet system
+    using a gradient-weighted approach, robust to diffuse interfaces.
+
+    Args:
+        rho_grid: array of shape (N_species, Nx, Ny), density field of species.
+        kappa: float, gradient energy coefficient.
+        dx: float, grid spacing (assumes uniform in x and y).
+
+    Returns:
+        gamma: float, estimated surface tension (energy per unit length in 2D).
+    """
+    # Compute spatial gradients (N_dim, Nx, Ny)
+    grad_rho_list = jnp.gradient(rho_grid[0], dx)
+    grad_rho = jnp.stack(grad_rho_list, axis=0)
+
+    # Gradient magnitude squared
+    grad_rho_sq = jnp.sum(grad_rho ** 2, axis=0)
+    grad_mag = jnp.sqrt(grad_rho_sq)
+
+    # Total interfacial energy
+    total_interfacial_energy = jnp.sum(kappa * grad_rho_sq) * dx * dx
+
+    # Approximate total interface length using |∇ρ| as weight
+    interface_length = jnp.sum(grad_mag) * dx
+
+    # Avoid division by zero
+    gamma = jnp.where(interface_length > 0, total_interfacial_energy / interface_length, 0.0)
+
+    return gamma
 
 data_file = r"C:\Users\Anthony\Documents\GitHub\phase-field-models\Examples\Wertheim\simple_wertheim\cuda\last_0.dat"
 data = np.loadtxt(data_file)
 reshaped_array = data.reshape(1, 512, 512)
 #surface_tension, components = compute_surface_tension(reshaped_array, True)
-surface_tension = compute_surface_tension_mechanical(reshaped_array, 1e6, True)
+surface_tension = compute_surface_tension_mechanical(reshaped_array, 1e6, False)
+st2 = compute_surface_tension_gradient_weighted(reshaped_array, 1e6)
 print(surface_tension)
+print(st2)

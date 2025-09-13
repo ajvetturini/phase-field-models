@@ -7,7 +7,6 @@ from pfm.integrators import ExplicitEuler, SemiImplicitSpectral
 from pfm.phase_field_models import CahnHilliard, AllenCahn
 import os
 from functools import partial
-import time
 
 
 class SimulationManager:

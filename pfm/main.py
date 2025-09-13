@@ -1,13 +1,22 @@
 import toml
 from typing import Callable
 import time
-import jax
+import os
 
 def run(config_filepath: str, override_use_jax: bool = False,
         custom_init_fn: Callable = None, custom_energy_fn: Callable = None):
     """ Specify a config file, and optionally a custom init / custom energy function """
     c = toml.load(config_filepath)
 
+    # Before importing JAX, check for relevent environment variables in the config:
+    if "CUDA_VISIBLE_DEVICES" in c:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(c["CUDA_VISIBLE_DEVICES"])
+
+    if "XLA_PYTHON_CLIENT_MEM_FRACTION" in c:
+        os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(c["XLA_PYTHON_CLIENT_MEM_FRACTION"])
+
+    # Specify float type prior to import jax.numpy in the SimulationManager
+    import jax
     if c.get('float_type', 'float32') == 'float64':
         jax.config.update("jax_enable_x64", True)
 

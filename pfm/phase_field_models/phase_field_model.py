@@ -8,8 +8,8 @@ from copy import deepcopy
 class PhaseFieldModel:
     def __init__(self, free_energy_model, config, integrator, rng, field_name, **kwargs):
         self._rng = rng
-        self.N = config.get('N')
-        self.dt = config.get('dt')
+        self.N = config.get('N', 64)
+        self.dt = config.get('dt', 0.001)
         self.dx = config.get('dx', 1.0)
         self._distance_scaling_factor = config.get('distance_scaling_factor', 1.0)
         self._inverse_scaling_factor = 1.0 / self._distance_scaling_factor
@@ -18,7 +18,7 @@ class PhaseFieldModel:
         self.field_name = field_name  # Name of the order parameter (e.g., rho or phi)
 
         if self.dim <= 0 or self.dim > 3:
-            raise Exception('Unable to proceed, currently only support for 1D, 2D, 3D is implemented')
+            raise Exception('Unable to proceed, currently only support for 1D, 2D is implemented')
 
         if np.mod(self.N, 2) != 0:
             raise ValueError("N should be a power of 2")
