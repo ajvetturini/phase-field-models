@@ -1,13 +1,13 @@
 from matplotlib import pyplot as plt
 import numpy as np
 
-def plot_density(fp: str, **kwargs):
+def plot_density(fp: str, constant_range: bool = False, **kwargs):
     """Plots a single file's worth of data (e.g., a frame of the data)."""
     data = np.loadtxt(fp)
     plt.figure()
     plt.title(fp)
     im = plt.imshow(data, **kwargs)
-    if kwargs.get('constant_range', False):
+    if constant_range:
         plt.clim(-1, 1)  # Set range
     plt.colorbar(im, )
     plt.show()
@@ -81,3 +81,27 @@ def plot_all_energies(list_of_fps: list, **kwargs):
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
+
+def plot_multispecies_densities(list_of_fps: list, plot_title: str = None, constant_range: bool = False, **kwargs):
+    """ Plots a multispecies solution by overlaying the multispecies configuration files """
+    # Similar to https://github.com/lorenzo-rovigatti/cahn-hilliard/blob/main/plot_saleh.py
+    rho_max = 0
+    data = []
+    for i, f in enumerate(list_of_fps):
+        conf_data = np.loadtxt(f)
+        data.append(conf_data)
+        data_max = np.max(conf_data)
+        if data_max > rho_max:
+            rho_max = data_max
+
+    # Rearrange and show:
+    data = (np.dstack(data / rho_max) * 259.999).astype(np.uint8)  # Convert to b256 safely
+
+    plt.figure()
+    plt.title(plot_title if plot_title is not None else '')
+    im = plt.imshow(data, **kwargs)
+    if constant_range:
+        plt.clim(-1, 1)
+    plt.colorbar(im, )
+    plt.show()
+
