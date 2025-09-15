@@ -26,15 +26,15 @@ class AllenCahn(PhaseFieldModel):
         """
         num_bins = jnp.prod(jnp.array(phi.shape[1:], dtype=jnp.int32))
 
-        # 1. Calculate gradient contribution
+        # Calculate gradient contribution
         all_gradients = self.gradient(phi)
         sum_sq_grad = jnp.sum(all_gradients ** 2, axis=1)
         interfacial_density = 0.5 * self.k * jnp.sum(sum_sq_grad, axis=0)
 
-        # 2. Calculate bulk contribution
+        # Calculate bulk contribution
         bulk_density = self.free_energy_model.bulk_free_energy(phi)
 
-        # 3. Combine and average
+        # Combine and average
         total_free_energy_density = bulk_density + interfacial_density
         total_fe = jnp.sum(total_free_energy_density) * self.V_bin
         avg_fe = total_fe / num_bins

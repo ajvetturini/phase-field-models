@@ -1,7 +1,3 @@
-"""
-The base FreeEnergyModel class that will pull in the relevent energy phase_field_models (e.g., landau) to construct a total
-FreeEnergyModel used in Cahn Hilliard simulations.
-"""
 import jax.numpy as jnp
 class FreeEnergyModel:
 
@@ -13,25 +9,25 @@ class FreeEnergyModel:
             jnp.array(1e-7, dtype=jnp.float32))
 
     def average_energy(self, u):
-        raise NotImplementedError('Not implemented here.')
+        raise NotImplementedError('Not implemented here')
 
     def N_species(self):
-        raise NotImplementedError('N_species must be implemented in derived classes.')
+        raise NotImplementedError('N_species must be implemented in derived classes')
 
     def der_bulk_free_energy_expansive(self, species, rho_species):
-        raise NotImplementedError('Not implemented here.')
+        raise NotImplementedError('Not implemented here')
 
     def der_bulk_free_energy_contractive(self, species, rho_species):
-        raise NotImplementedError('Not implemented here.')
+        raise NotImplementedError('Not implemented here')
 
     def der_bulk_free_energy(self, species, rho_species, rhos):
         # Derivative of bulk free energy
-        raise NotImplementedError('Not implemented here.')
+        raise NotImplementedError('Not implemented here')
 
     def der_bulk_free_energy_autodiff(self, species, rho_species):
-        raise NotImplementedError('Not implemented here.')
+        raise NotImplementedError('Not implemented here')
 
     def bulk_free_energy(self, rho_species):
         # Bulk free energy
-        raise NotImplementedError('Not implemented here.')
+        raise NotImplementedError('Not implemented here')
 

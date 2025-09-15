@@ -15,7 +15,7 @@ class PhaseFieldModel:
         self._inverse_scaling_factor = 1.0 / self._distance_scaling_factor
         self.dim = config.get('dim', 2)
         self.free_energy_model = free_energy_model
-        self.field_name = field_name  # Name of the order parameter (e.g., rho or phi)
+        self.field_name = field_name  # Name of the order parameter (e.g., rho (CH) or phi (AC) )
 
         if self.dim <= 0 or self.dim > 3:
             raise Exception('Unable to proceed, currently only support for 1D, 2D is implemented')
@@ -162,7 +162,8 @@ class PhaseFieldModel:
         return getattr(self, f"init_{self.field_name}")
 
     @partial(jax.jit, static_argnums=(0,))
-    def gradient(self, field: jnp.ndarray) -> jnp.ndarray:
+    def gradient(self, field: jnp.ndarray):
+        """ Spatial gradient function """
         grads = []
         spatial_axes = tuple(range(1, field.ndim))
 
@@ -183,8 +184,6 @@ class PhaseFieldModel:
     def average_mass(self, rho: jnp.array):
         """
         Calculates the average mass density, i.e., mass per unit grid volume averaged across all bins and all species
-
-        This will return a single floating point value
         """
         mass_density = jnp.sum(rho, axis=0)  # sum over species
         total_mass = jnp.sum(mass_density) * self.V_bin

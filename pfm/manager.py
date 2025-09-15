@@ -1,5 +1,4 @@
 import numpy as np
-import toml
 import jax
 import jax.numpy as jnp
 from pfm.energy_models import Landau, SimpleWertheim, GenericWertheim, SalehWertheim
@@ -439,24 +438,3 @@ class SimulationManagerNoWrite:
         rho_final, _ = jax.lax.scan(_evolve, rho_0, jnp.arange(steps))
         return rho_final
 
-    """
-    def run_system_no_logging(self):
-        rho_0 = getattr(self._system, 'init_' + self._system.field_name)
-        steps = self._steps
-
-        @jax.remat
-        def step_fn(r):
-            return self._system.evolve(r)
-
-        def _evolve(_r, _):
-            _r = step_fn(_r)
-            return _r, None
-
-        rho_final, _ = jax.lax.scan(_evolve, rho_0, None, length=steps)
-        return rho_final
-    """
-
-
-if __name__ == '__main__':
-    c = toml.load(r'../Examples/Landau/jax_long/input_magnetic_film.toml')
-    SimulationManager(c)

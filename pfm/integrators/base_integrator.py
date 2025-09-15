@@ -1,6 +1,3 @@
-"""
-Base class for Integrator modules
-"""
 import numpy as np
 from typing import Optional
 import jax
@@ -33,7 +30,7 @@ class Integrator:
         self._dim = config.get('dim', 2)
         self._float_type = config.get('float_type', jnp.float32)
         if isinstance(self._float_type, str):
-            if self._float_type == 'float64':  # Only valid option for float_type is float64
+            if self._float_type == 'float64':
                 self._float_type = jnp.float64
             elif self._float_type == 'float32':
                 self._float_type = jnp.float32
@@ -72,14 +69,14 @@ class Integrator:
         self._dEdp = self._model.der_bulk_free_energy_autodiff if self._use_autodiff else self._model.der_bulk_free_energy
 
     def evolve(self, rho: Optional):
-        raise NotImplementedError("evolve must be implemented by derived classes.")
+        raise NotImplementedError("evolve must be implemented by derived classes")
 
     @staticmethod
     def get_local_rho_species(rho, bin_indices):
-        # Extract the density of all species at a specific spatial bin
         def get_rho_at_bin(indices):
             return rho[:, *indices]
         return jax.vmap(get_rho_at_bin)(bin_indices)
 
     def _get_laplacian_function(self):
+        # EVENTUALLY: Should look at other ways to do this periodic check potentially?
         return jax.jit(make_laplacian_roll(self._dim, self.dx))

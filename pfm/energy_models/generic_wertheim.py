@@ -116,7 +116,7 @@ class GenericWertheim(FreeEnergyModel):
 
     @staticmethod
     def _parse_interaction(int_string, context):
-        """Parse an interaction string like '3-7' into a tuple of ints."""
+        """ Parse an interaction string like '3-7' into a tuple of ints """
         parts = int_string.split("-")
         if len(parts) != 2:
             raise ValueError(f"The following {context} interaction specifier is malformed: {int_string}")
@@ -134,9 +134,10 @@ class GenericWertheim(FreeEnergyModel):
 
     @partial(jax.jit, static_argnums=(0,))
     def _update_X(self, rhos, tolerance=1e-8, max_iter=10000):
-        """Iteratively solves for the fraction of non-bonded sites, X."""
+        """Iteratively solves for the fraction of non-bonded sites, X.
+        NOTE: The use of this while loop is part of the reason that GenericWertheim can NOT be used with autodiff
+        """
         # Initial state for the while_loop: (iteration, max_delta, X_vector)
-        # Start with X=1, a common initial guess for this kind of problem.
         initial_X = jnp.ones(self._N_patches)
         init_state = (0, jnp.inf, initial_X)
 
@@ -153,11 +154,11 @@ class GenericWertheim(FreeEnergyModel):
             rhos_per_interaction = rhos[self.source_species]
             X_per_interaction = current_X[self.source_patches]
 
-            # Calculate all interaction terms in a single vectorized step
+            # Calculate all interaction terms
             terms = self.multiplicities * rhos_per_interaction * X_per_interaction * self.deltas
             patch_sums = jax.ops.segment_sum(terms, self.target_patches, num_segments=self._N_patches)
 
-            # Calculate new X vector and the change to compare to stop condition
+            # Calculate new X vector / deltaX to determine stop condition of while loop
             new_X = 1.0 / (1.0 + patch_sums)
             max_delta = jnp.max(jnp.abs(new_X - current_X))
 
@@ -194,7 +195,7 @@ class GenericWertheim(FreeEnergyModel):
         return f_ref + self.bonding_energy(rhos)
 
     def _der_bulk_free_energy_single(self, rhos):
-        """ Calculates the derivative of the bulk free energy for a single point in the grid. """
+        """ Calculates the derivative of the bulk free energy for a single point in the grid """
         # Calculate the derivative of the reference free energy (f_ref)
         Xs = self._update_X(rhos)
         b2_contrib = 2.0 * (self._B2 @ rhos)
@@ -218,8 +219,8 @@ class GenericWertheim(FreeEnergyModel):
 
     @partial(jax.jit, static_argnums=(0,))
     def der_bulk_free_energy_autodiff(self, rhos):
-        """ Uses autodiff to evaluate the bulk_free_energy term """
-        # rhos is shape (N_species, Nx, Ny)
+        # NOTE: This does not work
+        raise Exception('ERROR: Autodiff currently unsupported for GenericWertheim')
         rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])
         out = jax.vmap(self._der_bulk_free_energy_point_autodiff)(rhos_flat)
         return out.T.reshape(rhos.shape)

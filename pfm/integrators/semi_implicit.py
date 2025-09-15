@@ -1,5 +1,4 @@
-# Semi-Implicit method, only really useful for Cahn-Hilliard because of 4th order dependency
-# Note that this is a FFT-based implicit, thus requires PERIODIC bcs
+# Note that using this integrator implies PERIODIC BCs since this is a FFT-based
 
 import jax.numpy as jnp
 from pfm.integrators.base_integrator import Integrator
@@ -32,8 +31,6 @@ class SemiImplicitSpectral(Integrator):
             if self._use_autodiff:
                 print("Using autodiff for bulk energy derivative")
 
-        # In the init we set the evolve function, allowing us to easily change what data gets transferred to individual
-        # energy phase_field_models:
         if config.get('model', 'ch').lower() == 'ch':
             self._evolve_fn = self._evolve_cahn_hilliard
         elif config.get('model', 'ac').lower() == 'ac':
@@ -72,7 +69,7 @@ class SemiImplicitSpectral(Integrator):
         Semi-implicit spectral update for Allen–Cahn:
         phi^{n+1}(k) = (phi^n(k) - dt * L * FFT[f'(phi^n)]) / (1 + dt * L * kappa * k^2)
         """
-        bulk_energy = self._dEdp(phi)  # f'(phi) in real space
+        bulk_energy = self._dEdp(phi)
 
         phi_hat = jnp.fft.fftn(phi, axes=tuple(range(1, phi.ndim)))
         bulk_hat = jnp.fft.fftn(bulk_energy, axes=tuple(range(1, bulk_energy.ndim)))
@@ -85,18 +82,11 @@ class SemiImplicitSpectral(Integrator):
         return phi_new
 
     def evolve(self, rho):
-        """ The order parameter (rho, phi) is passed in and updated. We need to specify which derivative function
-         to use if autodiff is enabled.
-         """
         #if jnp.isnan(new_rho).any():  # Can't uncomment or jit will break
         #    raise Exception('ERROR: NaN found in rho update. This is likely due to numerical method diverging.')
         return self._evolve_fn(rho)
 
 
     def _cell_laplacian(self, phi):
-        """
-        Periodic boundary conditions LaPlacian (uses roll). This is defined during base Integrator class so we don't
-        need to check the if conditionals constantly
-        """
         return self._cell_laplacian_fn(phi)
 

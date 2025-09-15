@@ -24,7 +24,6 @@ class SimpleWertheim(FreeEnergyModel):
 
 
     def N_species(self):
-        # For a simple Wertheim implementation we will consider just 1 species
         return 1
 
     def _X(self, rho):
@@ -35,10 +34,10 @@ class SimpleWertheim(FreeEnergyModel):
 
     @partial(jax.jit, static_argnums=(0,))
     def bulk_free_energy(self, rho_species):
-        r0 = rho_species[0]  # Only 1 species in SimpleWertheim
-        rho_sqr = r0 * r0  # Calculate square once
+        r0 = rho_species[0]
+        rho_sqr = r0 * r0
 
-        # Reference energy:
+        # Reference energy
         f_ref = jnp.where(r0 < self._regularisation_delta,  # Wherever order param < 0 (gas) use the regularisation
                           rho_sqr / (2.0 * self._regularisation_delta) + (
                                   r0 * self._log_delta - self._regularisation_delta / 2.0
@@ -47,7 +46,7 @@ class SimpleWertheim(FreeEnergyModel):
 
         f_ref += -r0 + self._B2 * rho_sqr
 
-        # Bond energy:
+        # Bonding energy
         f_bond = jnp.where(r0 > 0.0,
                            self._valence * r0 * (jnp.log(self._X(r0)) + 0.5 * (1.0 - self._X(r0))),
                            0.0
@@ -65,10 +64,10 @@ class SimpleWertheim(FreeEnergyModel):
         )
         der_f_ref += (2 * self._B2 * rho)
 
-        X = self._X(rho).astype(rho.dtype)  # Ensure _X is vectorized
+        X = self._X(rho).astype(rho.dtype)
         der_f_bond = jnp.where(
             rho > 0.,
-            self._valence * jnp.log(X),  # Consider safety: jnp.log(jnp.maximum(X, 1e-9))?
+            self._valence * jnp.log(X),
             0.0,
         )
 

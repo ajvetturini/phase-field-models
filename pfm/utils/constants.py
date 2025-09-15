@@ -1,6 +1,3 @@
-"""
-Various constants used throughout the simulation code
-"""
 from typing import List
 
 class Species:

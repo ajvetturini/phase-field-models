@@ -27,7 +27,7 @@ class SalehWertheim(FreeEnergyModel):
         self._delta_BB.delta *= (self._inverse_scaling_factor ** 3)
 
     def N_species(self):
-        # Saleh uses 3 species, please see GenericWertheim for a more generalized implementation
+        # Saleh uses 3 species, see GenericWertheim for a more generalized implementation
         return 3
 
     def bonding_energy(self, total_rhos):
@@ -99,7 +99,7 @@ class SalehWertheim(FreeEnergyModel):
         return jnp.where(rho_factor >= 0, jnp.log(X), 0.0)
 
     def _der_bulk_free_energy_point_autodiff(self, rhos):
-        """ Calculates the bulk free energy for each point in the grid. """
+        """ Calculates the bulk free energy for each point in the grid """
         return jax.grad(self.bulk_free_energy)(rhos)
 
     @partial(jax.jit, static_argnums=(0,))

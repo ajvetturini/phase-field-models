@@ -20,8 +20,6 @@ class ExplicitEuler(Integrator):
                 print('Using autodiff for bulk energy derivative')
             print(f'Stability term: {lhs} | This term should be << 1 or else Explicit Euler will be unstable.')
 
-        # In the init we set the evolve function, allowing us to easily change what data gets transferred to individual
-        # energy phase_field_models:
         if config.get('model', 'ch').lower() == 'ch':
             self._evolve_fn = self._evolve_cahn_hilliard
         elif config.get('model', 'ac').lower() == 'ac':
@@ -57,9 +55,6 @@ class ExplicitEuler(Integrator):
         return phi - (self._L_phi * energy_difference * self._dt)
 
     def evolve(self, rho):
-        """ The order parameter (rho, phi) is passed in and updated. We need to specify which derivative function
-         to use if autodiff is enabled.
-         """
         #if jnp.isnan(new_rho).any():  # Can't uncomment or jit will break
         #    raise Exception('ERROR: NaN found in rho update. This is likely due to numerical method diverging.')
         return self._evolve_fn(rho)
@@ -67,10 +62,6 @@ class ExplicitEuler(Integrator):
 
     def _cell_laplacian(self, phi):
         """
-        Periodic boundary conditions LaPlacian (uses roll). This is defined during base Integrator class so we don't
-        need to check the if conditionals constantly
-
-        phi: shape (N_species, Ny, Nx,)
-        Returns: shape (N_species, Ny, Nx)
+        Periodic boundary conditions LaPlacian (uses roll). This is defined during base Integrator class
         """
         return self._cell_laplacian_fn(phi)
