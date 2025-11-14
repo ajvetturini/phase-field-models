@@ -37,16 +37,22 @@ To learn more about the free energy models implemented in this package, please s
 
 # Performance Comparison
 
-Images Coming soon!
+<div align="center">
+  <img src="images/compare_runtimes.png" alt="Runtime comparison (note the log-scale on Y-axis) between free energy functionals and numerical solver schemes" width="800">
+  <p><em>A runtime comparison between a variety of free energy functionals (Landau, Simple Wertheim, and Saleh-Wertheim). Note the log-scale on the Y-axis showing that CUDA is **much** faster, but harder to prototype in. Furthermore, this implementation offers differentiation thru the simulation! </em></p>
+</div>
 
-All simulations were run on an NVIDIA RTX A6000 GPU for performance benchmarking. The same initial condition was used in the respective simulations using the "load_from" functionality in the input TOML.
+All simulations were run on an NVIDIA RTX A6000 GPU for performance benchmarking. The same initial condition was used in the respective simulations using the "load_from" functionality in the input TOML (with the exception of the Saleh-Wertheim system as the load_from command was not built into cahn-hilliard package when I test bedded this).
 
-The spectral / semi-implicit method is quite slow compared to a simple explicit euler, even in the simple Landau free energy model, and was thus not used for comparison in more complex models (i.e., simple and saleh wertheim). This behaviour was also noticed in [Cappa et al.](https://pubs.aip.org/aip/jcp/article/162/19/194901/3346915) and thus future work should consider novel numerical method integrators that allow for a combination of longer time steps to be taken during the simulation at a reasonable computational expense.
+The spectral / semi-implicit method is quite slow compared to a simple explicit euler, even in the simple Landau free energy model. This behaviour was also noticed in [Cappa et al.](https://pubs.aip.org/aip/jcp/article/162/19/194901/3346915) and thus future work should consider novel numerical method integrators that allow for a combination of longer time steps to be taken during the simulation at a reasonable computational expense. Furthermore, coupling these systems (i.e., Cahn-Hilliard and Allen-Cahn) may be needed when looking at more complex self-assembling systems.
+
+I am currently **debugging** the Simple Wertheim model to see why JAX does not seem to minimize the functional similarly to the CUDA implementation. This might be a simple bug or something much more complicated related to numerical stability / precision from JAX roll functions (i.e., periodic BCs). With that stated, the animations appear to be quite similar between the two, so I am leaning towards me having an implementation bug.
 
 Finally, float32 precision in this JAX-based simulator is not enough for simple / saleh wertheim models (as shown in the trajectory animations below). The simulation minimizes the free energy until the (lack of) floating precision prevents further minimization, thus "stalling out" the simulation. This is scene by comparing the JAX-float32 trajectory (second row, third column) and comparing it to the JAX-float64 / CUDA implementations (second row, first and second columns).
 
-Add Animations Here!
-
+![LandauSimulation](./images/landau_simulation.gif)
+![SimpleWertheim](./images/simple_wertheim.gif)
+![SalehWertheim](./images/saleh_wertheim.gif)
 
 # Descriptions of input TOML Options
 

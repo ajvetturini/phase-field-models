@@ -21,7 +21,7 @@ def _infer_N(filepath: str) -> int:
 
     return N
 
-def _read_in_filepath(filepath, sigma: float, interpolation_factor: int, smoothen_animation: bool):
+def read_in_filepath(filepath, sigma: float, interpolation_factor: int, smoothen_animation: bool):
     all_frames = []
     frame_data = []
     with open(filepath, 'r') as input_file:
@@ -73,10 +73,10 @@ def animate(filepath: str, smoothen_animation: bool = False, interpolation_facto
     fig, ax = plt.subplots(figsize=(8, 6))
     plt.subplots_adjust(bottom=0.15)
 
-    all_frames = _read_in_filepath(filepath, sigma, interpolation_factor, smoothen_animation)
+    all_frames = read_in_filepath(filepath, sigma, interpolation_factor, smoothen_animation)
     norm = colors.Normalize(vmin=np.min(all_frames), vmax=np.max(all_frames))
     image = ax.imshow(all_frames[0], norm=norm, cmap=kwargs.get('cmap', 'plasma'))
-    cbar = fig.colorbar(image, label="$\psi$")
+    cbar = fig.colorbar(image, label=r"\psi")
     ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])
 
     slider = widgets.Slider(ax_slider, 'Frame', 0, len(all_frames) - 1, valinit=0, valstep=1)
@@ -95,9 +95,10 @@ def animate(filepath: str, smoothen_animation: bool = False, interpolation_facto
         return [image]
 
     interval = kwargs.get('interval', 200)
+    repeat = kwargs.get('repeat', True)
     anim = animation.FuncAnimation(fig, animate_func, frames=len(all_frames),
                                    interval=interval // (interpolation_factor + 1) if interpolation_factor >= 0 else interval,
-                                   blit=True, repeat=True, repeat_delay=500)
+                                   blit=True, repeat=repeat, repeat_delay=500)
 
     def replay(event):
         slider.set_val(0)
@@ -131,13 +132,14 @@ def animate(filepath: str, smoothen_animation: bool = False, interpolation_facto
             print(f'Error saving .gif: {e}')
 
     plt.show()
+    return anim
 
 def animate_multispecies(list_of_filepaths: list, smoothen_animation: bool = False, interpolation_factor: int = 5,
                          sigma: float = 0.0, export_video_filepath_no_extension: str = None, **kwargs):
     """ Animates a multi-species phase field model """
     all_species = []
     for fp in list_of_filepaths:
-        all_frames = _read_in_filepath(fp, sigma, interpolation_factor, smoothen_animation)
+        all_frames = read_in_filepath(fp, sigma, interpolation_factor, smoothen_animation)
         all_species.append(all_frames)
 
     expected_len = len(all_species[0])
@@ -162,9 +164,7 @@ def animate_multispecies(list_of_filepaths: list, smoothen_animation: bool = Fal
     # Once the per_frame_data is constructed, we can populate the animation and show:
     fig, ax = plt.subplots(figsize=(8, 6))
     plt.subplots_adjust(bottom=0.15)
-    #norm = colors.Normalize(vmin=np.min(per_frame_data), vmax=np.max(per_frame_data))
-    #image = ax.imshow(per_frame_data[0], norm=norm, **kwargs)
-    image = ax.imshow(per_frame_data[0], **kwargs)
+    image = ax.imshow(per_frame_data[0], cmap=kwargs.get('cmap', 'plasma'))
     ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])
 
     slider = widgets.Slider(ax_slider, 'Frame', 0, len(per_frame_data) - 1, valinit=0, valstep=1)
@@ -183,10 +183,11 @@ def animate_multispecies(list_of_filepaths: list, smoothen_animation: bool = Fal
         return [image]
 
     interval = kwargs.get('interval', 200)
+    repeat = kwargs.get('repeat', True)
     anim = animation.FuncAnimation(fig, animate_func, frames=len(per_frame_data),
                                    interval=interval // (
                                                interpolation_factor + 1) if interpolation_factor >= 0 else interval,
-                                   blit=True, repeat=True, repeat_delay=500)
+                                   blit=True, repeat=repeat, repeat_delay=500)
 
     def replay(event):
         slider.set_val(0)
@@ -223,3 +224,5 @@ def animate_multispecies(list_of_filepaths: list, smoothen_animation: bool = Fal
             print(f'Error saving .gif: {e}')
 
     plt.show()
+    return anim
+
