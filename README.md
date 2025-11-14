@@ -4,7 +4,7 @@ Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model al
 
 Overall, this library has a focus on grid-based phase field modelling for self-assembly based systems, whereas other phase field model implementations (e.g., such as [JAX-AM](https://github.com/tianjuxue/jax-am)) focus on looking at grain development for additive manufacturing where the mesh quality is of greater importance. 
 
-Finally, these are lengthy simulations if you do not have a hardware accelerator (i.e., GPU / TPU). This jax-based version should still run on a CPU and allow you to still simulate more simple energy functionals (i.e., Landau) or lower time step systems due to JIT with performance similar to a CPU-based C++ implementation (but CUDA is much faster than JAX even with accelerators!). Overall, jax should be accessible on any type of computer (Windows, Mac, Linux) but Linux is preferred for easiest access to GPU acceleration. For more information, see [here](https://docs.jax.dev/en/latest/).
+Finally, these are lengthy simulations if you do not have a hardware accelerator (i.e., GPU / TPU). This jax-based version should still run on a CPU and allow you to still simulate more simple energy functionals (i.e., Landau). Generally, the JAX-based implementation is faster than a CPU-based C++ implementation (but raw CUDA is much faster on GPU / TPU). JAX is accessible on any type of computer (Windows, Mac, Linux) but Linux is preferred for easiest access to hardware acceleration.  For more information, see [here (https://docs.jax.dev/en/latest/).
 
 # Implementation Details
 
@@ -58,7 +58,7 @@ Add Animations Here!
 - `free_energy` (str) : The free energy model to use (see [Implementation Details](#implementation-details))
 - `integrator` (str, default=`euler`) : Which time integration scheme to use (see [Implementation Details](#implementation-details))
 - `model` (str, default = `ch`) : Which phase field model to use (either `ch` (Cahn-Hilliard) or `ac` (Allen-Cahn))
-- `N` (int, default = `64`) : Linear size of the grid-based system (and must be a power of 2). Note that the grids are constant (dx = dy) in this simulator
+- `N` (int, default = `64`) : Linear size of the grid-based system. Note that the grids are constant (dx = dy) in this simulator.
 - `k` (float, default = `1.0`) : Coefficient linked to free energy penalty at the interface of two phases
 - `interface_scalar` (float, default = `1.0`) : A secondary coefficient linked to free energy penalty at interface. This can be modified based on your preferred derivation of Cahn-Hilliard (for example, in Saleh-Wertheim simulations, this should be set to 2.0)
 - `M` (float, default = `1.0`) : Mobility coefficient for use in Cahn-Hilliard
@@ -81,7 +81,7 @@ Add Animations Here!
 Note: You must use the pfm.main.run() function to properly use these, as the sequence of imports matters.
 - `float_type` (str, default = `float32`) : Floating precision to use (either float32 or float64)
 - `use_autodiff` (bool, default = `False`) : Use automatic differentiation for the bulk free energy term during time integration
-- `XLA_PYTHON_CLIENT_MEM_FRACTION` (float) : Limit the amount of GPU memory that JAX uses 
+- `XLA_PYTHON_CLIENT_MEM_FRACTION` (float) : Limit the amount of GPU memory that JAX pre-allocates 
 - `CUDA_VISIBLE_DEVICES` (int) : GPU Device ID that JAX will use 
 
 # Package Requirements
