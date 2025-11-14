@@ -29,6 +29,4 @@ def run(config_filepath: str, override_use_jax: bool = False,
     end = time.time() - start
     minutes = int(end // 60)
     seconds = int(end % 60)
-
-    print(f'JAX-version of CH finished in: {minutes} min and {seconds} secs')
     return minutes, seconds

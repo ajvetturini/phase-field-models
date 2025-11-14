@@ -12,7 +12,6 @@ class GenericWertheim(FreeEnergyModel):
     def __init__(self, config):
         super().__init__(config)
         wertheim_config = config.get("generic_wertheim")
-        float_type = jnp.float64 if config.get("float_type", "float64") else jnp.float32
         if config.get('use_autodiff', False):
             raise ValueError("ERROR: Autodiff is current not supported for GenericWertheim as it relies on a while "
                              "loop to converge X (fraction of unbounded states) during updates")
@@ -221,6 +220,3 @@ class GenericWertheim(FreeEnergyModel):
     def der_bulk_free_energy_autodiff(self, rhos):
         # NOTE: This does not work
         raise Exception('ERROR: Autodiff currently unsupported for GenericWertheim')
-        rhos_flat = jnp.moveaxis(rhos, 0, -1).reshape(-1, rhos.shape[0])
-        out = jax.vmap(self._der_bulk_free_energy_point_autodiff)(rhos_flat)
-        return out.T.reshape(rhos.shape)

@@ -20,9 +20,6 @@ class PhaseFieldModel:
         if self.dim <= 0 or self.dim > 3:
             raise Exception('Unable to proceed, currently only support for 1D, 2D is implemented')
 
-        if np.mod(self.N, 2) != 0:
-            raise ValueError("N should be a power of 2")
-
         num_species = free_energy_model.N_species()
         shape = tuple([num_species] + [self.N] * self.dim)
         initial_field = np.zeros(shape)
@@ -145,9 +142,6 @@ class PhaseFieldModel:
         self.integrator = integrator
         dtype = config.get('float_type', jnp.float32)
         self._float_type = dtype
-        if dtype == jnp.float64:
-            print('NOTE: 64-bit precision specified, operations will be slow if not on double precision specific '
-                  'hardware. Even then, the roll laplacian is quite slow.')
         setattr(self, f"init_{self.field_name}", jnp.array(initial_field, dtype=dtype))
 
         # Central differences can be "bad" for explicit euler and can blow up the energy calculations, so

@@ -71,11 +71,15 @@ class Integrator:
     def evolve(self, rho: Optional):
         raise NotImplementedError("evolve must be implemented by derived classes")
 
-    @staticmethod
+    '''@staticmethod
     def get_local_rho_species(rho, bin_indices):
         def get_rho_at_bin(indices):
             return rho[:, *indices]
-        return jax.vmap(get_rho_at_bin)(bin_indices)
+        return jax.vmap(get_rho_at_bin)(bin_indices)'''
+
+    @staticmethod
+    def get_local_rho_species(rho, bin_indices):
+        return rho[(slice(None),) + tuple(bin_indices.T)].T
 
     def _get_laplacian_function(self):
         # EVENTUALLY: Should look at other ways to do this periodic check potentially?

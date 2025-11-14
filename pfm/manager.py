@@ -223,7 +223,8 @@ class SimulationManager:
         traj_log = np.array(traj_log)
         self._print_current_state("last_", self._steps, rho=rho_n)
 
-        print('Beginning write out of final files, this may take a moment...')
+        if self._config.get('verbose', False):
+            print('Beginning write out of final files, this may take a moment...')
         self._write_output_jax_arrays(traj_log, energy_log, steps, dim_str, rho_n)
         return rho_n
 

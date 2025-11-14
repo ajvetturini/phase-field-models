@@ -12,11 +12,11 @@ def run_pfm(toml_file):
     end = time.time() - start
     return end
 
-time1 = run_pfm('euler_autodiff.toml')
+#time1 = run_pfm('euler_autodiff.toml')
 time2 = run_pfm('euler_noautodiff.toml')
-time3 = run_pfm('spectral_noautodiff.toml')
-time4 = run_pfm('spectral_autodiff.toml')
-all_times_to_write = [('euler_autodiff', time1), ('euler_noautodiff', time2), ('spectral_noautodiff', time3), ('spectral_autodiff', time4)]
+#time3 = run_pfm('spectral_noautodiff.toml')
+#time4 = run_pfm('spectral_autodiff.toml')
+#all_times_to_write = [('euler_autodiff', time1), ('euler_noautodiff', time2), ('spectral_noautodiff', time3), ('spectral_autodiff', time4)]
 
 def time_ch_and_move(command, move_dir):
     start = time.time()
@@ -34,18 +34,18 @@ def time_ch_and_move(command, move_dir):
 
 
 
-command1 = ["/mnt/nvme/home/avetturi/cahn-hilliard/build/bin/ch_2D", "/mnt/nvme/home/avetturi/phase-field-models/Examples/Landau/cuda/input_cuda.toml"]
-command2 = ["/mnt/nvme/home/avetturi/cahn-hilliard/build/bin/ch_2D", "/mnt/nvme/home/avetturi/phase-field-models/Examples/Landau/nocuda/input_nocuda.toml"]
+#command1 = ["/mnt/nvme/home/avetturi/cahn-hilliard/build/bin/ch_2D", "/mnt/nvme/home/avetturi/phase-field-models/Examples/Landau/cuda/input_cuda.toml"]
+#command2 = ["/mnt/nvme/home/avetturi/cahn-hilliard/build/bin/ch_2D", "/mnt/nvme/home/avetturi/phase-field-models/Examples/Landau/nocuda/input_nocuda.toml"]
 
-time_to_run = time_ch_and_move(command1, 'cuda')
-all_times_to_write.append(('cuda', time_to_run))
-time_to_run = time_ch_and_move(command2, 'nocuda')
-all_times_to_write.append(('nocuda', time_to_run))
+#time_to_run = time_ch_and_move(command1, 'cuda')
+#all_times_to_write.append(('cuda', time_to_run))
+#time_to_run = time_ch_and_move(command2, 'nocuda')
+#all_times_to_write.append(('nocuda', time_to_run))
 
 
 # Write out to txt file the timed results:
-with open('landau_all_timed_results.txt', 'w') as f:
+'''with open('landau_all_timed_results.txt', 'w') as f:
     f.write('Landau Results (times reported in seconds)\n')  
     for result in all_times_to_write:
         name, final_time = result
-        f.write(f'{name} | {final_time}\n') 
+        f.write(f'{name} | {final_time}\n') '''
