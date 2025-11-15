@@ -11,7 +11,7 @@ import jax.numpy as jnp
 class MagneticFilm(FreeEnergyModel):
     def __init__(self, config):
         super().__init__(config)
-        self._energy_config = config.get('magnetic_film')
+        self._energy_config = config.get('MagneticFilm')
         self._delta = jnp.array(self._energy_config.get('delta', 1.0), dtype=jnp.float64)
 
         self._autograd_fn = jax.jit(jax.grad(self._elementwise_bulk_free_energy))

@@ -1,0 +1,21 @@
+steps = 1e8
+print_every = 1e6
+print_trajectory_every = 1e6
+N = 512
+dt = 1e-5
+free_energy = "simple_wertheim"
+dx = 10
+k = 1e6
+use_CUDA = true
+load_from = "Wertheim/simple_wertheim/standard_input_simple_wert.dat"
+
+[wertheim]
+valence = 4
+B2 = 2190
+
+[wertheim.delta]
+T = 303.15
+deltaH = -42200
+deltaS = -119.1
+salt = 0.5
+sticky_size = 6
