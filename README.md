@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/959492943.svg)](https://doi.org/10.5281/zenodo.18713642)
+
 # Phase Field Modelling using JAX
 
 Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model algorithms (inspired from https://github.com/lorenzo-rovigatti/cahn-hilliard) alongside [reproduced results](#performance-comparison). The output of this phase field package (i.e., the resultant mass / energy log and order parameter trajectory) are formatted similarly to the cahn-hilliard package, and here I also implemented the Allen-Cahn model. Furthermore, this package enables **automatic differentiation** to be leveraged for ML-based development of new free energy models (or the rapid prototyping of free energy models without having to touch CUDA code). Overall, if you are unfamiliar with phase fields / other mesoscopic simulations, I'd recommend reading Ch 12 and 13 of Introduction to Computational Materials Science by Richard Lesar.
@@ -5,6 +7,14 @@ Python / JAX implementation of Cahn-Hilliard and Allen-Cahn phase field model al
 Overall, this library has a focus on grid-based phase field modelling for self-assembly based systems, whereas other phase field model implementations (e.g., such as [JAX-AM](https://github.com/tianjuxue/jax-am)) focus on looking at grain development for additive manufacturing where the mesh quality is of greater importance. 
 
 Finally, these are lengthy simulations if you do not have a hardware accelerator (i.e., GPU / TPU). This jax-based version can still run on a CPU and allow you to still simulate more simple energy functionals (i.e., Landau). Generally, the performance of the JAX-based implementation on CPU is comparable to the CPU-based C++ implementation. The JAX-based implementation on a hardware accelerator is much more performant than CPU, but less performant than a CUDA-based implementation. JAX is accessible on any type of computer (Windows, Mac, Linux) but Linux is preferred for easiest access to hardware acceleration.  For more information, see [here (https://docs.jax.dev/en/latest/).
+
+# Citation
+
+If you use this code in published research, please cite the Zenodo repository: 
+
+```
+Vetturini, A. J. (2026). *Phase Field Models using JAX* (v1.0.0) [Software]. Zenodo. [https://doi.org/10.5281/zenodo.18713642](https://doi.org/10.5281/zenodo.18713642)
+```
 
 # Implementation Details
 
