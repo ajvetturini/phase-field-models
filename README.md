@@ -12,9 +12,8 @@ Finally, these are lengthy simulations if you do not have a hardware accelerator
 
 If you use this code in published research, please cite the Zenodo repository: 
 
-```
 Vetturini, A. J. (2026). *Phase Field Models using JAX* (v1.0.0) [Software]. Zenodo. [https://doi.org/10.5281/zenodo.18713642](https://doi.org/10.5281/zenodo.18713642)
-```
+
 
 # Implementation Details
 
